@@ -36,7 +36,15 @@ export class RecordingToGherkinGenerator {
       
       switch (action.type) {
         case 'navigate':
-          lines.push(`    ${stepType} I navigate to "${action.url}"`);
+          // First navigation is Given, later navigations are When/Then
+          if (index === 0) {
+            lines.push(`    ${stepType} I navigate to "${action.url}"`);
+          } else if (action.url?.includes('thankyou')) {
+            // This is the order confirmation - make it a Then assertion
+            lines.push(`    Then I should see the order confirmation page`);
+          } else {
+            lines.push(`    ${stepType} I navigate to "${action.url}"`);
+          }
           break;
         case 'click':
           const clickDesc = this.getClickDescription(action);
@@ -54,6 +62,8 @@ export class RecordingToGherkinGenerator {
 
   private getClickDescription(action: RecordedAction): string {
     const s = action.selector.toLowerCase();
+    // Check place order button FIRST (before proceed/checkout)
+    if (s.includes('place-order-button') || s.includes('order-button')) return 'place order button';
     if (s.includes('account')) return 'account link';
     if (s.includes('continue')) return 'continue button';
     if (s.includes('sign in')) return 'sign in button';
@@ -61,7 +71,6 @@ export class RecordingToGherkinGenerator {
     if (s.includes('add-to-cart')) return 'add to cart button';
     if (s.includes('proceed') || s.includes('checkout')) return 'proceed to checkout button';
     if (s.includes('credit') || s.includes('debit') || s.includes('card')) return 'payment method';
-    if (s.includes('place') && s.includes('order')) return 'place order button';
     // Check for textbox clicks (focus actions)
     if (s.includes('textbox')) {
       if (s.includes('email')) return 'email field';
@@ -103,6 +112,25 @@ export class RecordingToGherkinGenerator {
 
     // Track unique step patterns
     const generatedPatterns = new Set<string>();
+
+    // Check if we have a thankyou navigation for order confirmation
+    const hasOrderConfirmation = recording.actions.some(a => 
+      a.type === 'navigate' && a.url?.includes('thankyou')
+    );
+    
+    if (hasOrderConfirmation && !generatedPatterns.has('order-confirmation')) {
+      generatedPatterns.add('order-confirmation');
+      stepDefs.push(
+        `Then('I should see the order confirmation page', async function() {`,
+        `  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});`,
+        `  const currentUrl = page.url();`,
+        `  if (!currentUrl.includes('thankyou')) {`,
+        `    throw new Error(\`Expected order confirmation page, but got \${currentUrl}\`);`,
+        `  }`,
+        `});`,
+        ``
+      );
+    }
 
     recording.actions.forEach((action, index) => {
       switch (action.type) {

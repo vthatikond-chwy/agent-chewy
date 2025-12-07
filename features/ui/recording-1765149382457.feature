@@ -17,5 +17,5 @@ Feature: Recorded User Flow
     When I click on add to cart button
     When I click on proceed to checkout button
     When I click on payment method
-    When I click on payment method
-    When I navigate to "https://www-stg.chewy.net/app/checkout/thankyou?orderId=5013883280&orderType=O"
+    When I click on place order button
+    Then I should see the order confirmation page

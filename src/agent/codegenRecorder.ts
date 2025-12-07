@@ -111,6 +111,23 @@ export class CodegenRecorder {
         continue;
       }
 
+      // Handle nested getByTestId().getByTestId() with click
+      const nestedTestIdClickMatch = line.match(/page\.getByTestId\(['"](.+?)['"]\)\.getByTestId\(['"](.+?)['"]\)\.click\(\)/);
+      if (nestedTestIdClickMatch && nestedTestIdClickMatch[1] && nestedTestIdClickMatch[2]) {
+        const parent = nestedTestIdClickMatch[1];
+        const child = nestedTestIdClickMatch[2];
+        const selector = `getByTestId('${parent}').getByTestId('${child}')`;
+        
+        actions.push({
+          type: 'click',
+          selector: selector,
+          timestamp: Date.now() + i * 100,
+          description: `Click on ${child}`
+        });
+        console.log(`  ✓ Click on nested ${parent} > ${child}`);
+        continue;
+      }
+
       // Extract getByTestId, getByRole, etc. with click
       // Handle getByRole with name parameter: getByRole('button', { name: 'Continue' })
       const getByRoleWithNameMatch = line.match(/page\.getByRole\(['"](.+?)['"],\s*\{\s*name:\s*['"](.+?)['"]\s*\}\)/);

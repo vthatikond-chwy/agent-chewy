@@ -15,6 +15,14 @@ After(async function() {
   await browser.close();
 });
 
+Then('I should see the order confirmation page', async function() {
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  const currentUrl = page.url();
+  if (!currentUrl.includes('thankyou')) {
+    throw new Error(`Expected order confirmation page, but got ${currentUrl}`);
+  }
+});
+
 Given('I navigate to {string}', async function(url: string) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -116,6 +124,13 @@ When('I click on proceed to checkout button', async function() {
 
 When('I click on payment method', async function() {
   const element = page.getByText('Credit or Debit Card');
+  await element.waitFor({ state: 'visible', timeout: 10000 });
+  await element.click();
+  await page.waitForTimeout(500);
+});
+
+When('I click on place order button', async function() {
+  const element = page.getByTestId('place-order-card').getByTestId('place-order-button');
   await element.waitFor({ state: 'visible', timeout: 10000 });
   await element.click();
   await page.waitForTimeout(500);

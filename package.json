@@ -7,7 +7,12 @@
     "agent-chewy": "./src/cli/index.ts"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
+    "test:ui": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
+    "record": "npx tsx src/cli/index.ts ui record",
+    "record:url": "npx tsx src/cli/index.ts ui record",
+    "generate": "npx tsx src/cli/index.ts ui generate-from-recording",
+    "record-and-test": "npm run record && npm run generate && npm test"
   },
   "keywords": [],
   "author": "",
