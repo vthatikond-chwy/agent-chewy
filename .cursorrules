@@ -1,0 +1,13 @@
+rules:
+  - id: no-markdown-files
+    description: Prevent Cursor from generating or modifying .md files.
+    match: "**/*.md"
+    actions:
+      block: true
+rules:
+  - id: readonly-markdown
+    description: Allow reading Markdown but prevent Cursor from writing it.
+    match: "**/*.md"
+    actions:
+      read: true
+      write: false

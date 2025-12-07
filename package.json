@@ -1,0 +1,31 @@
+{
+  "name": "agent-chewy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "agent-chewy": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@cucumber/cucumber": "^12.3.0",
+    "@playwright/test": "^1.57.0",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "openai": "^6.10.0",
+    "playwright": "^1.57.0",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
