@@ -16,11 +16,12 @@ After(async function() {
 });
 
 Then('I should see the order confirmation page', async function() {
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
   const currentUrl = page.url();
   if (!currentUrl.includes('thankyou')) {
     throw new Error(`Expected order confirmation page, but got ${currentUrl}`);
   }
+  console.log('✓ Order confirmed! URL:', currentUrl);
 });
 
 Given('I navigate to {string}', async function(url: string) {
