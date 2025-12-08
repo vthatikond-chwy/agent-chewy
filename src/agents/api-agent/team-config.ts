@@ -56,7 +56,7 @@ export function loadTeamConfig(swaggerSpecPath: string): TeamConfig | null {
  * Extract project name from swagger spec path
  * Example: swagger/teams/kyrios/kyrios-api.json -> kyrios
  */
-function extractProjectName(swaggerSpecPath: string): string | null {
+export function extractProjectName(swaggerSpecPath: string): string | null {
   try {
     const normalizedPath = path.normalize(swaggerSpecPath);
     const parts = normalizedPath.split(path.sep);

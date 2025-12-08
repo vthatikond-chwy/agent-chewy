@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import SwaggerParser from '@apidevtools/swagger-parser';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { extractProjectName } from '../agents/api-agent/team-config.js';
 
 dotenv.config();
 
@@ -153,7 +154,9 @@ apiCommand
       
       // Determine service from spec
       const apiTitle = spec.info?.title || '';
-      const service = apiTitle.includes('AVS') ? 'avs' : undefined;
+      // Extract team name from swagger spec path
+      const teamName = extractProjectName(options.swagger);
+      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
 
       for (const scenario of scenarios) {
         // Determine category from endpoint
@@ -239,6 +242,11 @@ apiCommand
 
       console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
 
+      // Extract team name from swagger spec path
+      const teamName = extractProjectName(options.swagger);
+      const apiTitle = spec.info?.title || '';
+      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
+
       const featureFiles: string[] = [];
       const stepFiles: string[] = [];
 
@@ -249,11 +257,11 @@ apiCommand
           console.log(`   Processing: ${scenario.name}...`);
           
           const featureContent = await generator.generateCucumberFeature(scenario, spec);
-          const featurePath = generator.writeFeatureFile(scenario, featureContent);
+          const featurePath = generator.writeFeatureFile(scenario, featureContent, service);
           featureFiles.push(featurePath);
           
           const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec, options.swagger);
-          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
+          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent, service);
           stepFiles.push(stepPath);
           
           console.log(`   ✅ ${scenario.name}`);
@@ -328,6 +336,11 @@ apiCommand
 
       console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
 
+      // Extract team name from swagger spec path
+      const teamName = extractProjectName(options.swagger);
+      const apiTitle = spec.info?.title || '';
+      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
+
       const featureFiles: string[] = [];
       const stepFiles: string[] = [];
 
@@ -338,11 +351,11 @@ apiCommand
           console.log(`   Processing: ${scenario.name}...`);
           
           const featureContent = await generator.generateCucumberFeature(scenario, spec);
-          const featurePath = generator.writeFeatureFile(scenario, featureContent);
+          const featurePath = generator.writeFeatureFile(scenario, featureContent, service);
           featureFiles.push(featurePath);
           
           const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec, options.swagger);
-          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
+          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent, service);
           stepFiles.push(stepPath);
           
           console.log(`   ✅ ${scenario.name}`);

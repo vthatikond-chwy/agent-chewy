@@ -4,7 +4,7 @@ import type { AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config(); // Load environment variables from .env file
 
 interface CustomWorld extends World {
   baseUrl?: string;
@@ -52,16 +52,11 @@ Then('the response status code should be 200 for successfully-create-a-non-b2b-u
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response for successfully-create-a-non-b2b-user-with-registertype-r contains a valid ID', function (this: CustomWorld) {
+Then('the response should contain a valid integer ID for successfully-create-a-non-b2b-user-with-registertype-r', function (this: CustomWorld) {
   expect(this.response?.data).to.be.a('number');
-  expect(this.response?.data).to.not.be.null;
   expect(this.response?.data).to.be.greaterThan(0);
 });
 
-Then('the registerType in the response for successfully-create-a-non-b2b-user-with-registertype-r is {string}', function (this: CustomWorld, expectedRegisterType: string) {
-  // Assuming the API returns the full user object including registerType in a real-world scenario
-  // This step is hypothetical given the API returns just the user ID. Adjust based on actual API response structure.
-  const responseBody = this.response?.data;
-  expect(responseBody).to.have.property('registerType');
-  expect(responseBody.registerType).to.equal(expectedRegisterType);
+Then('the response header "Content-Type" should be "application/json" for successfully-create-a-non-b2b-user-with-registertype-r', function (this: CustomWorld) {
+  expect(this.response?.headers['content-type']).to.include('application/json');
 });
