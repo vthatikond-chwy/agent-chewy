@@ -80,6 +80,25 @@ This directory contains team-specific configuration and rules for the AVS (Addre
 
 ## Common Issues and Solutions
 
+### Query Parameters Issue
+**Problem**: Adding `params: { engine: 'default' }` to axios requests causes 400 error: "No engine found that matches: default"
+
+**Solution**: 
+- DO NOT include optional query parameters unless explicitly needed in the test scenario
+- The API works correctly without query parameters
+- Only add query parameters if the test scenario specifically requires them
+
+**Example**:
+```typescript
+// ❌ WRONG - causes 400 error
+axios.post(url, body, { headers, params: { engine: 'default' } });
+
+// ✅ CORRECT - works without params
+axios.post(url, body, { headers });
+```
+
+## Common Issues and Solutions (continued)
+
 ### Issue: Generated code includes OAuth token
 **Solution:** Check `config.json` - `useOAuth` should be `false` for AVS
 

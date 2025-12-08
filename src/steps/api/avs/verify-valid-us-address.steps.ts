@@ -30,19 +30,19 @@ Given('the request headers for verify-valid-us-address include:', function (this
 
 Given('the request body for verify-valid-us-address is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
-  const addressData = rows[0];
+  const data = rows[0];
   this.requestBody = {
-    streets: [addressData.streets],
-    city: addressData.city,
-    stateOrProvince: addressData.stateOrProvince,
-    postalCode: addressData.postalCode,
-    country: addressData.country,
+    streets: [data.streets],
+    city: data.city,
+    stateOrProvince: data.stateOrProvince,
+    postalCode: data.postalCode,
+    country: data.country,
   };
 });
 
 When('I send a POST request for verify-valid-us-address', async function (this: CustomWorld) {
   try {
-    const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers, params: { engine: 'default' } });
+    const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -53,11 +53,11 @@ When('I send a POST request for verify-valid-us-address', async function (this: 
   }
 });
 
-Then('the response status code for verify-valid-us-address should be 200', function (this: CustomWorld) {
+Then('the response status for verify-valid-us-address should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response body for verify-valid-us-address should have a responseCode of {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-valid-us-address should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('responseCode');
   expect(responseBody.responseCode).to.equal(expectedCode);

@@ -548,7 +548,7 @@ CRITICAL REQUIREMENTS:
 ${teamRules?.responsePatterns?.arrayResponseEndpoints?.includes(scenario.endpoint) ? `14. CRITICAL: This endpoint (${scenario.endpoint}) returns an ARRAY directly, not an object with a property.\n   - Use: response.data (it's already an array)\n   - DO NOT use: response.data.suggestions or response.data.items\n   - Example: expect(response.data).to.be.an('array').that.is.not.empty;` : ''}
 ${teamRules?.normalizationRules?.addressComparison === 'case-insensitive' ? `15. CRITICAL: Address comparisons must be CASE-INSENSITIVE.\n   - Use .toUpperCase() for both expected and actual values\n   - Example: expect(actual.toUpperCase()).to.equal(expected.toUpperCase());` : ''}
 ${teamRules?.normalizationRules?.postalCodeHandling === 'prefix-match' ? `16. CRITICAL: Postal code handling - API may return ZIP+4 format.\n   - Check if response postal code includes/contains the request postal code\n   - Example: expect(responsePostalCode).to.include(requestPostalCode);` : ''}
-${teamRules?.queryParameterHandling?.[scenario.endpoint] ? `17. CRITICAL: This endpoint uses query parameters: ${teamRules.queryParameterHandling[scenario.endpoint].parameters?.join(', ')}\n   - Pass them in axios request: { params: { paramName: value } }\n   - Example: axios.post(url, body, { params: { maxSuggestions: 5 } })` : ''}
+${teamRules?.queryParameterHandling?.[scenario.endpoint] ? `17. CRITICAL: This endpoint supports optional query parameters: ${teamRules.queryParameterHandling[scenario.endpoint].parameters?.join(', ')}\n   - These are OPTIONAL - only include them if explicitly needed in the test scenario\n   - DO NOT add query parameters with placeholder values like "default" - they may cause 400 errors\n   - Only add params if the test scenario specifically requires them\n   - Example: axios.post(url, body, { params: { maxSuggestions: 5 } }) - only if maxSuggestions is needed` : ''}
 ${useOAuth ? `14. IMPORTANT: Include Authorization header with Bearer token in all requests. Use process.env.${oauthTokenEnvVar} to get the token.` : ''}
 15. CRITICAL - Quoted Strings in Feature Files: When the feature file has quoted strings like "Content-Type" or "application/json", Cucumber treats them as parameters. 
    - Step definitions MUST use {string} placeholders instead of literal quoted text
@@ -764,6 +764,18 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       content = content.replace(
         /const\s+rows\s*=\s*dataTable\.hashes\(\)\s*;\s*for\s*\(const\s+key\s+in\s+rows\)\s*\{[^}]*this\.headers\[key\]\s*=\s*rows\[key\]\s*;[^}]*\}/g,
         'const rows = dataTable.hashes();\n  const headerRow = rows[0];\n  this.headers = { ...this.headers, ...headerRow };'
+      );
+      
+      // Fix invalid query parameters - remove params with placeholder values like 'default'
+      // Pattern: params: { engine: 'default' } or params: { engine: 'default', ... }
+      content = content.replace(
+        /params:\s*\{\s*engine:\s*['"]default['"][^}]*\}/g,
+        '// params removed - optional query parameters should not be included unless explicitly needed'
+      );
+      // Also remove params object entirely if it only contains invalid values
+      content = content.replace(
+        /,\s*params:\s*\{\s*engine:\s*['"]default['"][^}]*\}\s*,?\s*/g,
+        ' '
       );
       
       // Fix duplicate else statements - remove multiple else blocks (more aggressive)
@@ -1131,6 +1143,9 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
           'gi'
         );
         
+        // Store paramNames outside the replace callback so we can use them later
+        let storedParamNames: string[] = [];
+        
         content = content.replace(stepDefPattern, (match, stepType) => {
           // Replace quoted strings with {string} placeholders
           let fixedStepText = stepText;
@@ -1150,9 +1165,24 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
             paramNames.push(paramName);
           }
           
+          // Store paramNames for later use in function body fixes
+          storedParamNames = [...paramNames];
+          
           // Build new function signature with parameters
-          const params = paramNames.map((name, index) => `${name}${index}: string`).join(', ');
-          const paramUsage = paramNames.map((name, index) => name + index).join(', ');
+          // Use meaningful parameter names without index suffix for cleaner code
+          const params = paramNames.map((name, index) => {
+            // Generate meaningful names based on context
+            if (name.includes('responsecode') || name.includes('response')) {
+              return `expectedCode: string`;
+            } else if (name.includes('property') || name.includes('field')) {
+              return `propertyName: string`;
+            } else if (name.includes('header')) {
+              return `headerName: string`;
+            } else if (name.includes('value')) {
+              return `expectedValue: string`;
+            }
+            return `${name}: string`;
+          }).join(', ');
           
           // Return fixed step definition
           return `${stepType}('${fixedStepText}', function (this: CustomWorld, ${params}) {`;
@@ -1166,16 +1196,26 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
           
           // Find step definitions that reference this quoted value literally
           const literalValuePattern = new RegExp(
-            `(expect\\([^)]*\\)\\.to\\.(equal|include)\\(['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\))`,
+            `(expect\\([^)]*\\)\\.to\\.(equal|include|have\\.property)\\(['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\))`,
             'gi'
           );
           
           // Replace with parameter reference (simplified - assumes order matches)
           // This is a heuristic and may need refinement
           content = content.replace(literalValuePattern, (match) => {
-            // Try to determine which parameter this should be based on context
-            // For now, use a simple replacement strategy
-            return match.replace(new RegExp(`['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'gi'), `param${i}`);
+            // Determine which parameter this should be based on context
+            let paramName: string;
+            if (quotedValue === 'responseCode' || quotedValue === 'VERIFIED') {
+              // For responseCode property checks, use expectedCode
+              paramName = quotedValue === 'responseCode' ? 'propertyName' : 'expectedCode';
+            } else if (quotedValue.toLowerCase().includes('response') || quotedValue.toLowerCase().includes('code')) {
+              paramName = 'expectedCode';
+            } else if (quotedValue.toLowerCase().includes('property') || quotedValue.toLowerCase().includes('field')) {
+              paramName = 'propertyName';
+            } else {
+              paramName = storedParamNames[i] || `param${i + 1}`;
+            }
+            return match.replace(new RegExp(`['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'gi'), paramName);
           });
         }
       }

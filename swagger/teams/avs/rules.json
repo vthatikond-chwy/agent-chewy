@@ -54,7 +54,8 @@
     },
     "/avs/v1.0/verifyAddress": {
       "parameters": ["engine"],
-      "required": []
+      "required": [],
+      "notes": "DO NOT include query parameters unless explicitly needed. Adding params: { engine: 'default' } causes 400 error 'No engine found that matches: default'. The API works correctly without query parameters."
     }
   },
   "assertionPatterns": {
@@ -73,10 +74,10 @@
   "testData": {
     "workingAddresses": {
       "verifyAddress": {
-        "streets": ["1600 Amphitheatre Parkway"],
-        "city": "Mountain View",
-        "stateOrProvince": "CA",
-        "postalCode": "94043",
+        "streets": ["600 HARLAN CT"],
+        "city": "Bonaire",
+        "stateOrProvince": "GA",
+        "postalCode": "31005-5427",
         "country": "US"
       },
       "suggestAddresses": {

@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for suggest-addresses-with-incomplete-data test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-address-with-valid-us-address test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,23 +22,24 @@ Given('the API endpoint for suggest-addresses-with-incomplete-data test is {stri
   };
 });
 
-Given('the request body for suggest-addresses-with-incomplete-data is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-address-with-valid-us-address is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const addressData = rows[0];
   this.requestBody = {
     streets: [addressData.streets],
     city: addressData.city,
     stateOrProvince: addressData.stateOrProvince,
+    postalCode: addressData.postalCode,
     country: addressData.country,
   };
 });
 
-When('I send a POST request for suggest-addresses-with-incomplete-data', async function (this: CustomWorld) {
+When('I send a POST request for verify-address-with-valid-us-address', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (axios.isAxiosError(error) && error.response) {
       this.response = error.response;
     } else {
       throw error;
@@ -46,15 +47,12 @@ When('I send a POST request for suggest-addresses-with-incomplete-data', async f
   }
 });
 
-Then('the response code for suggest-addresses-with-incomplete-data should be 200', function (this: CustomWorld) {
+Then('the response status for verify-address-with-valid-us-address should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response body for suggest-addresses-with-incomplete-data is an array', function (this: CustomWorld) {
-  expect(this.response?.data).to.be.an('array');
-});
-
-Then('the response for suggest-addresses-with-incomplete-data contains address suggestions', function (this: CustomWorld) {
-  const responseData = this.response?.data;
-  expect(responseData).to.satisfy((array: any[]) => array.some(item => item.hasOwnProperty('requestAddress')));
+Then('the response code for verify-address-with-valid-us-address should be {string}', function (this: CustomWorld, expectedCode: string) {
+  const responseBody = this.response?.data;
+  expect(responseBody).to.have.property('responseCode');
+  expect(responseBody.responseCode).to.equal(expectedCode);
 });
