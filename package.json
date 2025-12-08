@@ -9,9 +9,15 @@
   "scripts": {
     "test": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
     "test:ui": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
+    "test:api": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/**/*.feature --import 'src/steps/api/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
     "record": "npx tsx src/cli/index.ts ui record",
     "record:url": "npx tsx src/cli/index.ts ui record",
     "generate": "npx tsx src/cli/index.ts ui generate-from-recording",
+    "api:generate": "npx tsx src/cli/index.ts api generate",
+    "api:list": "npx tsx src/cli/index.ts api list",
+    "api:endpoint": "npx tsx src/cli/index.ts api endpoint",
+    "api:tag": "npx tsx src/cli/index.ts api tag",
+    "api:heal": "npx tsx src/cli/index.ts api heal",
     "record-and-test": "npm run record && npm run generate && npm test"
   },
   "keywords": [],
@@ -19,16 +25,24 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@apidevtools/swagger-parser": "^10.1.0",
     "@cucumber/cucumber": "^12.3.0",
+    "@faker-js/faker": "^8.3.0",
     "@playwright/test": "^1.57.0",
+    "ajv": "^8.12.0",
+    "axios": "^1.6.0",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
+    "js-yaml": "^4.1.0",
     "openai": "^6.10.0",
     "playwright": "^1.57.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.10.1",
+    "chai": "^6.2.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

@@ -1,13 +1,432 @@
-rules:
-  - id: no-markdown-files
-    description: Prevent Cursor from generating or modifying .md files.
-    match: "**/*.md"
-    actions:
-      block: true
-rules:
-  - id: readonly-markdown
-    description: Allow reading Markdown but prevent Cursor from writing it.
-    match: "**/*.md"
-    actions:
-      read: true
-      write: false
+# Agent-Chewy API Test Generator - Project Context
+
+## Project Overview
+Agent-Chewy is a TypeScript-based test automation framework that now includes AI-powered API test generation capabilities. The system generates comprehensive Cucumber/BDD test scenarios and step definitions from natural language input and Swagger/OpenAPI specifications.
+
+## Tech Stack
+- **Language**: TypeScript
+- **Runtime**: Node.js
+- **AI/LLM**: OpenAI GPT-4
+- **API Spec Parsing**: @apidevtools/swagger-parser
+- **Testing Framework**: Cucumber/BDD with @cucumber/cucumber
+- **HTTP Client**: Axios
+- **Test Data**: @faker-js/faker
+- **Schema Validation**: ajv
+
+## Project Structure
+```
+agent-chewy/
+├── src/
+│   ├── agent/                      # Existing agent code
+│   │   ├── codegenRecorder.ts
+│   │   ├── recordingToGherkin.ts
+│   │   ├── popupHandler.ts
+│   │   └── uiAgent.ts
+│   ├── api-generator/              # NEW: API test generation
+│   │   ├── types.ts                # TypeScript type definitions
+│   │   ├── config.ts               # Configuration management
+│   │   ├── swagger/
+│   │   │   ├── parser.ts           # Parse OpenAPI/Swagger specs
+│   │   │   └── analyzer.ts         # Analyze endpoints for test generation
+│   │   ├── nlp/
+│   │   │   ├── openaiClient.ts     # OpenAI integration for NLP
+│   │   │   ├── intentExtractor.ts  # Extract test intent from natural language
+│   │   │   └── testPlanner.ts      # Plan test scenarios
+│   │   ├── generator/
+│   │   │   ├── scenarioGenerator.ts      # Generate test scenarios
+│   │   │   ├── cucumberGenerator.ts      # Generate Cucumber/Gherkin files
+│   │   │   └── stepDefinitionGenerator.ts # Generate TypeScript step definitions
+│   │   ├── data/
+│   │   │   └── testDataGenerator.ts      # Generate realistic test data
+│   │   ├── orchestrator.ts         # Main orchestration logic
+│   │   └── index.ts                # Public API exports
+│   ├── cli/                        # Existing CLI code
+│   ├── core/                       # Existing core utilities
+│   ├── healing/                    # Existing self-healing logic
+│   ├── support/                    # Existing support utilities
+│   ├── steps/                      # Existing step definitions
+│   │   └── api/                    # NEW: Generated API step definitions
+│   └── index.ts                    # Main entry point
+├── features/                       # Cucumber feature files
+│   ├── api/                        # NEW: Generated API feature files
+│   └── ui/                         # Existing UI feature files
+├── recordings/                     # Test recordings
+├── node_modules/
+├── .env                            # Environment variables (OPENAI_API_KEY)
+├── .cursorrules                    # This file
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+## Core Functionality
+
+### 1. Swagger/OpenAPI Parsing
+**Location**: `src/api-generator/swagger/parser.ts`
+
+The `SwaggerSpecParser` class:
+- Loads and validates OpenAPI/Swagger specifications (JSON or YAML)
+- Resolves all $ref references automatically
+- Extracts endpoint information (paths, methods, parameters, schemas)
+- Provides typed access to request/response schemas
+- Identifies security requirements
+
+**Key Methods**:
+- `loadSpec(path)`: Load spec from file
+- `loadSpecFromUrl(url)`: Load spec from URL
+- `getAllEndpoints()`: Get all API endpoints
+- `getEndpointsByTag(tag)`: Filter endpoints by tag
+- `getRequestBodySchema()`: Extract request schema
+- `getResponseSchema()`: Extract response schema
+
+### 2. Natural Language Processing
+**Location**: `src/api-generator/nlp/openaiClient.ts`
+
+The `OpenAIClient` class:
+- Processes natural language test requirements
+- Generates comprehensive test scenarios using GPT-4
+- Creates Cucumber/Gherkin scenarios
+- Generates TypeScript step definitions
+- Ensures JSON-formatted responses for parsing
+
+**Key Methods**:
+- `extractTestScenarios(nlInput, swaggerContext)`: Convert NL → Test Scenarios
+- `generateCucumberScenario(scenario, endpoint)`: Generate Gherkin syntax
+- `generateStepDefinitions(cucumber, endpoint)`: Generate TypeScript code
+
+### 3. Test Generation Types
+**Location**: `src/api-generator/types.ts`
+
+**Test Scenario Types**:
+- **Positive Tests**: Happy path with valid data
+- **Negative Tests**: Error conditions, invalid inputs
+- **Boundary Tests**: Edge cases, min/max values
+- **Security Tests**: Auth failures, injection attempts
+
+**Priority Levels**: high, medium, low
+
+### 4. Configuration
+**Location**: `src/api-generator/config.ts`
+
+**Environment Variables Required**:
+```bash
+OPENAI_API_KEY=sk-...              # Required: OpenAI API key
+OPENAI_MODEL=gpt-4-turbo-preview   # Optional: Default model
+```
+
+**Default Settings**:
+- Model: gpt-4-turbo-preview
+- Temperature: 0.7 (for scenario generation), 0.2-0.3 (for code generation)
+- Max Tokens: 4000
+- Output Dirs: `./features/api/` and `./src/steps/api/`
+
+## Key Interfaces
+
+### SwaggerEndpoint
+```typescript
+interface SwaggerEndpoint {
+  path: string;                    // e.g., "/api/users/{id}"
+  method: string;                  // GET, POST, PUT, DELETE, PATCH
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  parameters?: SwaggerParameter[];
+  requestBody?: RequestBody;
+  responses?: Record;
+  security?: SecurityRequirement[];
+}
+```
+
+### TestScenario
+```typescript
+interface TestScenario {
+  name: string;                    // Human-readable scenario name
+  description: string;
+  type: 'positive' | 'negative' | 'boundary' | 'security';
+  priority: 'high' | 'medium' | 'low';
+  endpoint: string;
+  method: string;
+  testData?: any;                  // Request payload/params
+  expectedStatus: number;          // Expected HTTP status code
+  assertions: string[];            // List of assertions to validate
+  prerequisites?: string[];        // Setup steps needed
+  tags?: string[];                 // Cucumber tags
+}
+```
+
+## Workflow
+
+### End-to-End Test Generation Flow
+```
+1. User Input (Natural Language)
+   ↓
+2. Load Swagger Specification
+   ↓
+3. Parse & Analyze Endpoints
+   ↓
+4. OpenAI: Extract Test Scenarios
+   ↓
+5. For Each Scenario:
+   a. OpenAI: Generate Cucumber/Gherkin
+   b. OpenAI: Generate Step Definitions
+   ↓
+6. Write Files:
+   - features/api/*.feature
+   - src/steps/api/*.steps.ts
+   ↓
+7. Return Generated Files
+```
+
+## Code Patterns
+
+### Error Handling
+```typescript
+try {
+  // Operation
+} catch (error) {
+  console.error('Error context:', error);
+  throw new Error(`Descriptive error: ${error.message}`);
+}
+```
+
+### OpenAI Calls
+```typescript
+const response = await this.client.chat.completions.create({
+  model: this.config.openai.model,
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ],
+  temperature: 0.7,
+  response_format: { type: 'json_object' } // For JSON responses
+});
+```
+
+### File Generation
+```typescript
+import * as fs from 'fs';
+import * as path from 'path';
+
+const outputPath = path.join(outputDir, `${filename}.feature`);
+fs.writeFileSync(outputPath, content, 'utf-8');
+```
+
+## Testing Approach
+
+### Unit Tests
+- Test individual parsers and generators
+- Mock OpenAI responses
+- Validate schema parsing
+
+### Integration Tests
+- End-to-end test generation
+- Use sample Swagger specs
+- Verify generated file structure
+
+## Dependencies
+
+### Production
+```json
+{
+  "@apidevtools/swagger-parser": "^10.1.0",
+  "@cucumber/cucumber": "^10.0.0",
+  "openai": "^4.20.0",
+  "axios": "^1.6.0",
+  "@faker-js/faker": "^8.3.0",
+  "ajv": "^8.12.0",
+  "js-yaml": "^4.1.0"
+}
+```
+
+### Development
+```json
+{
+  "@types/node": "^20.0.0",
+  "@types/js-yaml": "^4.0.9",
+  "typescript": "^5.0.0"
+}
+```
+
+## Usage Examples
+
+### Example 1: Generate Tests from Natural Language
+```typescript
+import { ApiTestGenerator } from './api-generator';
+
+const generator = new ApiTestGenerator();
+
+await generator.generateFromNaturalLanguage({
+  naturalLanguageInput: "Test that users can create a new account with valid data and receive a 201 response",
+  swaggerSpecPath: "./specs/api.yaml"
+});
+```
+
+### Example 2: Generate Tests for Specific Endpoint
+```typescript
+await generator.generateForEndpoint({
+  swaggerSpecPath: "./specs/api.yaml",
+  endpoint: "/api/users",
+  method: "POST",
+  generateAll: true // positive, negative, boundary, security
+});
+```
+
+### Example 3: Generate Tests by Tag
+```typescript
+await generator.generateForTag({
+  swaggerSpecPath: "./specs/api.yaml",
+  tag: "Authentication",
+  outputDir: "./features/api/auth"
+});
+```
+
+## Best Practices
+
+### When Writing Code
+1. **Type Everything**: Use TypeScript types for all functions and variables
+2. **Error Context**: Always provide context in error messages
+3. **Logging**: Use console.log for progress, console.error for errors
+4. **Async/Await**: Use async/await, not .then() chains
+5. **Modularity**: Keep functions small and focused
+6. **Comments**: Add JSDoc comments for public APIs
+
+### When Using OpenAI
+1. **Clear Prompts**: Be explicit about output format
+2. **System Prompts**: Define role and expectations
+3. **JSON Mode**: Use `response_format: { type: 'json_object' }` for structured data
+4. **Temperature**: 0.2-0.3 for code, 0.7 for scenarios
+5. **Error Handling**: Always catch and handle API errors
+
+### File Organization
+1. Group related functionality in folders
+2. Use index.ts for public exports
+3. Keep types in separate files
+4. One class per file (generally)
+
+## Common Tasks
+
+### Adding a New Generator
+1. Create file in `src/api-generator/generator/`
+2. Implement generator class with async methods
+3. Export from `src/api-generator/index.ts`
+4. Add types to `types.ts` if needed
+
+### Adding New Test Types
+1. Update `TestScenario` type in `types.ts`
+2. Update OpenAI prompts in `openaiClient.ts`
+3. Update generator logic to handle new type
+
+### Customizing Output Format
+1. Modify templates in generator classes
+2. Update file writing logic
+3. Test with sample data
+
+## Troubleshooting
+
+### OpenAI API Errors
+- Check OPENAI_API_KEY environment variable
+- Verify API key has sufficient credits
+- Check rate limits (reduce concurrent requests)
+
+### Swagger Parsing Errors
+- Validate Swagger spec with online validators
+- Check for circular $ref references
+- Ensure spec is valid JSON/YAML
+
+### Generated Code Issues
+- Review OpenAI prompts for clarity
+- Adjust temperature (lower = more deterministic)
+- Add more context to prompts
+
+## Next Steps
+
+### Planned Features
+1. **Test Data Generation**: Smart data based on schema constraints
+2. **Multi-Endpoint Flows**: Generate tests across multiple related endpoints
+3. **Self-Healing**: Auto-update tests when Swagger changes
+4. **Coverage Analysis**: Track which endpoints have test coverage
+5. **Parallel Generation**: Generate tests for multiple endpoints concurrently
+6. **CLI Integration**: Add commands to existing CLI
+7. **Database Validation**: Verify database state after API calls
+8. **Performance Tests**: Generate load/stress test scenarios
+
+## Integration with Existing Agent-Chewy
+
+### Current UI Testing Flow
+The existing codebase handles UI test recording and Gherkin generation:
+- `recordingToGherkin.ts`: Converts UI recordings to Gherkin
+- `uiAgent.ts`: Handles UI automation
+
+### New API Testing Flow
+The new API generator complements existing functionality:
+- Works independently from UI testing
+- Shares Cucumber/BDD framework
+- Uses same `features/` directory structure
+- Can be combined: UI tests + API validation
+
+### Synergy Opportunities
+1. **Hybrid Tests**: Generate API tests alongside UI tests
+2. **API Mocking**: Use generated API tests as mocks for UI tests
+3. **Data Setup**: Use API calls for test data setup in UI tests
+4. **Validation**: API tests validate backend while UI tests validate frontend
+
+## Commands to Remember
+
+### Setup
+```bash
+npm install
+cp .env.example .env
+# Add your OPENAI_API_KEY to .env
+```
+
+### Development
+```bash
+npm run build          # Compile TypeScript
+npm run test           # Run tests
+npm run dev            # Development mode with watch
+```
+
+### Testing Generated Code
+```bash
+npx cucumber-js features/api/  # Run generated API tests
+```
+
+## Important Notes
+
+1. **API Keys**: Never commit .env file or expose OPENAI_API_KEY
+2. **Rate Limits**: OpenAI has rate limits; implement retries if needed
+3. **Cost**: Each test generation uses API calls (monitor costs)
+4. **Quality**: Always review generated tests before using in production
+5. **Versioning**: Track Swagger spec versions with generated tests
+
+## Questions to Consider When Implementing
+
+1. Should we generate tests immediately or queue them?
+2. How do we handle authentication tokens in generated tests?
+3. Should we validate generated code before writing files?
+4. How do we version generated tests?
+5. Should we allow manual editing of generated tests?
+6. How do we handle Swagger spec updates?
+7. Should we integrate with existing CI/CD?
+
+## Code Style
+
+- **Indentation**: 2 spaces
+- **Quotes**: Single quotes for strings
+- **Semicolons**: Yes, always
+- **Line Length**: Max 100 characters
+- **Naming**: camelCase for variables/functions, PascalCase for classes/interfaces
+- **Exports**: Use named exports, not default exports
+
+## Git Workflow
+
+1. Create feature branch from main
+2. Make focused commits with clear messages
+3. Test thoroughly before PR
+4. Request review from team
+5. Squash merge to main
+
+---
+
+This context should help you understand the entire system architecture, how components interact, and best practices for development. Update this file as the project evolves.

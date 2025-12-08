@@ -1,14 +1,9 @@
+#!/usr/bin/env node
+
 import { Command } from 'commander';
-import { NLParser } from '../core/nlParser.js';
-import { GherkinGenerator } from '../core/gherkinGenerator.js';
-import { StepDefGenerator } from '../core/stepDefGenerator.js';
-import { UIAgent } from '../agent/uiAgent.js';
-import { CredentialInjector } from '../core/credentialInjector.js';
-import { CodegenRecorder, type RecordedSession } from '../agent/codegenRecorder.js';
-import { RecordingToGherkinGenerator } from '../agent/recordingToGherkin.js';
-import * as dotenv from 'dotenv';
+import SwaggerParser from '@apidevtools/swagger-parser';
 import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -16,337 +11,367 @@ const program = new Command();
 
 program
   .name('agent-chewy')
-  .description('AI-powered test automation tool')
+  .description('AI-powered test automation framework')
   .version('1.0.0');
 
-program
-  .command('generate')
-  .description('Generate test files from natural language instruction')
-  .argument('<instruction>', 'Natural language test instruction')
-  .option('-o, --output <dir>', 'Output directory', 'features')
-  .action(async (instruction: string, options: { output?: string }) => {
+// API commands
+const apiCommand = program
+  .command('api')
+  .description('API test generation commands');
+
+// List endpoints
+apiCommand
+  .command('list')
+  .description('List all endpoints in Swagger specification')
+  .requiredOption('-s, --swagger <path>', 'Path to Swagger/OpenAPI file')
+  .option('-t, --tag <tag>', 'Filter by tag')
+  .option('-j, --json', 'Output as JSON')
+  .action(async (options) => {
     try {
-      console.log('Parsing instruction...');
-      const parser = new NLParser(process.env.OPENAI_API_KEY!);
-      let plan = await parser.parse(instruction);
-
-      // Inject credentials from .env
-      const credentials = CredentialInjector.getCredentials();
-      if (credentials.url || credentials.username || credentials.password) {
-        console.log('🔐 Injecting credentials from .env...');
-        plan = CredentialInjector.injectCredentials(plan);
-      }
-
-      console.log('Generating Gherkin feature file...');
-      const generator = new GherkinGenerator();
-      const featureContent = generator.generate(plan);
-
-      // Create output directory if it doesn't exist
-      const outputDir = options.output || 'features';
-      await fs.mkdir(outputDir, { recursive: true });
-
-      // Generate feature file name from feature name
-      const featureFileName = plan.featureName
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-      const featurePath = path.join(outputDir, `${featureFileName}.feature`);
-
-      await fs.writeFile(featurePath, featureContent, 'utf-8');
-      console.log(`✓ Feature file created: ${featurePath}`);
-
-      // Generate step definitions
-      console.log('Generating step definitions...');
-      const stepDefGenerator = new StepDefGenerator();
-      const stepsDir = path.join(outputDir, '..', 'steps');
-      await fs.mkdir(stepsDir, { recursive: true });
+      console.log('📖 Loading Swagger specification...\n');
       
-      const stepDefPath = path.join(stepsDir, 'step-definitions.ts');
-      await stepDefGenerator.saveToFile(stepDefPath);
-      console.log(`✓ Step definitions created: ${stepDefPath}`);
-
-      console.log('\n✓ Test generation complete!');
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
-
-program
-  .command('run')
-  .description('Parse instruction and execute test immediately')
-  .argument('<instruction>', 'Natural language test instruction')
-  .action(async (instruction: string) => {
-    try {
-      console.log('Parsing instruction...');
-      const parser = new NLParser(process.env.OPENAI_API_KEY!);
-      let plan = await parser.parse(instruction);
-
-      // Inject credentials from .env
-      const credentials = CredentialInjector.getCredentials();
-      if (credentials.url || credentials.username || credentials.password) {
-        console.log('🔐 Injecting credentials from .env...');
-        plan = CredentialInjector.injectCredentials(plan);
-      }
-
-      console.log('\nGenerated Test Plan:');
-      console.log(JSON.stringify(plan, null, 2));
-
-      console.log('\nGenerating test files...');
-      const generator = new GherkinGenerator();
-      const featureContent = generator.generate(plan);
-
-      // Create temp directory
-      const tempDir = path.join(process.cwd(), '.temp');
-      await fs.mkdir(tempDir, { recursive: true });
-
-      const featureFileName = plan.featureName
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-      const featurePath = path.join(tempDir, `${featureFileName}.feature`);
-
-      await fs.writeFile(featurePath, featureContent, 'utf-8');
-      console.log(`✓ Feature file created: ${featurePath}`);
-
-      // Generate step definitions
-      const stepDefGenerator = new StepDefGenerator();
-      const stepDefPath = path.join(tempDir, 'step-definitions.ts');
-      await stepDefGenerator.saveToFile(stepDefPath);
-      console.log(`✓ Step definitions created: ${stepDefPath}`);
-
-      console.log('\n⚠️  Test execution not yet implemented. Use "agent-chewy execute" to run feature files.');
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
-
-const uiCommand = program
-  .command('ui')
-  .description('UI testing commands (recording, generation, execution)');
-
-uiCommand
-  .command('record [startUrl]')
-  .description('Record user actions in browser using Playwright codegen')
-  .action(async (startUrl?: string) => {
-    try {
-      const recorder = new CodegenRecorder();
-      const sessionFile = await recorder.record(startUrl);
-      console.log(`\n✅ Recording completed!`);
-      console.log(`📁 Session file: ${sessionFile}`);
-      console.log(`\nNext step: agent-chewy ui generate-from-recording ${sessionFile}`);
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
-  });
-
-uiCommand
-  .command('generate-from-recording <recordingFile>')
-  .description('Generate Cucumber tests from recorded session')
-  .option('-o, --output <dir>', 'Output directory', 'features/ui')
-  .action(async (recordingFile: string, options: { output?: string }) => {
-    try {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OPENAI_API_KEY not found in environment variables');
-      }
-
-      console.log(`📖 Reading recording: ${recordingFile}`);
-      let recording: RecordedSession;
+      const spec = await SwaggerParser.dereference(options.swagger) as any;
       
-      if (recordingFile.endsWith('.js')) {
-        // Parse codegen JS file
-        const recorder = new CodegenRecorder();
-        recording = await recorder.parseCodegenFile(recordingFile);
+      const apiInfo = {
+        title: spec.info?.title || 'Unknown API',
+        version: spec.info?.version || '1.0.0',
+        description: spec.info?.description
+      };
+      
+      // Get base URL
+      let baseUrl = '';
+      if (spec.servers && spec.servers.length > 0) {
+        baseUrl = spec.servers[0].url;
+      } else if (spec.host) {
+        const schemes = spec.schemes || ['https'];
+        const basePath = spec.basePath || '';
+        baseUrl = `${schemes[0]}://${spec.host}${basePath}`;
+      }
+      
+      console.log(`✅ API: ${apiInfo.title} (v${apiInfo.version})`);
+      if (spec.info?.description) {
+        console.log(`📝 Description: ${spec.info.description}`);
+      }
+      if (baseUrl) {
+        console.log(`🔗 Base URL: ${baseUrl}`);
+      }
+      console.log();
+      
+      const paths = spec.paths || {};
+      const endpoints = [];
+      
+      for (const [path, pathItem] of Object.entries(paths)) {
+        for (const [method, operation] of Object.entries(pathItem as any)) {
+          if (['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(method)) {
+            const op = operation as any;
+            const endpoint = {
+              method: method.toUpperCase(),
+              path,
+              operationId: op.operationId,
+              summary: op.summary,
+              description: op.description,
+              tags: op.tags || []
+            };
+            
+            // Filter by tag if specified
+            if (!options.tag || endpoint.tags.includes(options.tag)) {
+              endpoints.push(endpoint);
+            }
+          }
+        }
+      }
+      
+      if (options.json) {
+        console.log(JSON.stringify({ apiInfo, baseUrl, endpoints }, null, 2));
       } else {
-        // Parse JSON session file
-        const content = await fs.readFile(recordingFile, 'utf-8');
-        recording = JSON.parse(content);
+        console.log(`Found ${endpoints.length} endpoints:\n`);
+        
+        endpoints.forEach(ep => {
+          console.log(`${ep.method.padEnd(7)} ${ep.path}`);
+          if (ep.summary) {
+            console.log(`        ${ep.summary}`);
+          }
+          if (ep.description) {
+            console.log(`        ${ep.description}`);
+          }
+          if (ep.tags && ep.tags.length > 0) {
+            console.log(`        Tags: ${ep.tags.join(', ')}`);
+          }
+          console.log();
+        });
       }
-
-      console.log('🤖 Generating Cucumber tests from recording...');
-      const generator = new RecordingToGherkinGenerator(process.env.OPENAI_API_KEY);
-      const { feature, steps } = await generator.generate(recording);
-
-      // Create output directories
-      const outputDir = options.output || 'features/ui';
-      const stepsDir = path.join(outputDir, '..', 'steps', 'ui');
-      await fs.mkdir(outputDir, { recursive: true });
-      await fs.mkdir(stepsDir, { recursive: true });
-
-      // Generate feature file name
-      const featureName = recording.id || `recorded-${Date.now()}`;
-      const featurePath = path.join(outputDir, `${featureName}.feature`);
-      const stepsPath = path.join(stepsDir, `${featureName}.steps.ts`);
-
-      await fs.writeFile(featurePath, feature, 'utf-8');
-      await fs.writeFile(stepsPath, steps, 'utf-8');
-
-      console.log(`\n✅ Generated Cucumber tests from recording!`);
-      console.log(`📄 Feature file: ${featurePath}`);
-      console.log(`📄 Step definitions: ${stepsPath}`);
-      console.log(`\nNext step: agent-chewy ui execute ${featurePath}`);
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
+      
+    } catch (error: any) {
+      console.error('❌ Error:', error.message);
+      console.error(error.stack);
       process.exit(1);
     }
   });
 
-uiCommand
-  .command('run <instruction>')
-  .description('Run tests interactively with UI agent (self-healing, screenshots, video)')
-  .option('--headless', 'Run in headless mode', false)
-  .option('--no-vision', 'Disable GPT-4 Vision self-healing (faster)', false)
-  .option('--vision-fallback', 'Use vision only when selectors fail (recommended)', true)
-  .option('--vision-all', 'Use vision for all elements (slow)', false)
-  .option('--no-video', 'Disable video recording', false)
-  .option('--no-screenshots', 'Disable screenshot recording', false)
-  .option('-o, --output <dir>', 'Output directory for results', 'test-results')
-  .action(async (instruction: string, options: {
-    headless?: boolean;
-    vision?: boolean;
-    video?: boolean;
-    screenshots?: boolean;
-    output?: string;
-    visionFallback?: boolean;
-    visionAll?: boolean;
+// Generate command
+apiCommand
+  .command('generate')
+  .description('Generate API tests from natural language')
+  .requiredOption('-s, --swagger <path>', 'Path to Swagger/OpenAPI file')
+  .requiredOption('-i, --input <text>', 'Natural language test description')
+  .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .option('-e, --endpoints <paths...>', 'Filter by specific endpoint paths')
+  .option('-t, --tags <tags...>', 'Filter by Swagger tags')
+  .action(async (options: {
+    swagger: string;
+    input: string;
+    apiKey?: string;
+    endpoints?: string[];
+    tags?: string[];
   }) => {
     try {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OPENAI_API_KEY not found in environment variables');
-      }
-
-      console.log('🤖 Starting UI Agent...\n');
-      console.log(`Instruction: ${instruction}\n`);
-
-      // Determine vision mode
-      let useVision = true;
-      let visionMode: 'none' | 'fallback' | 'all' = 'fallback';
+      console.log('\n🚀 API Test Generator\n');
       
-      if (options.vision === false || options.noVision) {
-        useVision = false;
-        visionMode = 'none';
-      } else if (options.visionAll) {
-        visionMode = 'all';
-      } else {
-        visionMode = 'fallback'; // Default: use vision as fallback
-      }
-
-      const agent = new UIAgent(process.env.OPENAI_API_KEY, {
-        headless: options.headless || false,
-        recordVideo: options.video !== false,
-        recordScreenshots: options.screenshots !== false,
-        useVision,
-        visionMode,
-        outputDir: options.output || 'test-results',
-      });
-
-      const result = await agent.run(instruction);
-
-      console.log('\n' + '='.repeat(60));
-      console.log('📊 Execution Summary');
-      console.log('='.repeat(60));
-      console.log(`Status: ${result.success ? '✅ SUCCESS' : '❌ FAILED'}`);
-      console.log(`Steps executed: ${result.stepsExecuted}/${result.totalSteps}`);
+      // Dynamic import to avoid loading issues
+      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
       
-      if (result.errors.length > 0) {
-        console.log(`\nErrors (${result.errors.length}):`);
-        result.errors.forEach((err) => {
-          console.log(`  Step ${err.step}: ${err.description}`);
-          console.log(`    → ${err.error}`);
-        });
+      const generator = new SimpleTestGenerator(options.apiKey);
+      
+      console.log('📖 Loading Swagger specification...');
+      const spec = await SwaggerParser.dereference(options.swagger) as any;
+      console.log(`   API: ${spec.info.title} (v${spec.info.version})\n`);
+      
+      console.log('🤖 Generating test scenarios with OpenAI...');
+      const scenarios = await generator.generateTestScenarios(
+        options.input,
+        spec,
+        options.endpoints
+      );
+      console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
+      
+      const generatedFiles = {
+        features: [] as string[],
+        steps: [] as string[]
+      };
+      
+      console.log('📝 Generating Cucumber features and step definitions...\n');
+      
+      for (const scenario of scenarios) {
+        try {
+          console.log(`   🔨 ${scenario.name}`);
+          
+          // Generate Cucumber feature
+          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec);
+          const featurePath = generator.writeFeatureFile(scenario, cucumberFeature);
+          generatedFiles.features.push(featurePath);
+          
+          // Generate step definitions
+          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec);
+          const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs);
+          generatedFiles.steps.push(stepsPath);
+          
+          console.log(`      ✅ Feature: ${path.basename(featurePath)}`);
+          console.log(`      ✅ Steps: ${path.basename(stepsPath)}`);
+          
+        } catch (error: any) {
+          console.error(`      ❌ Error: ${error.message}`);
+        }
       }
-
-      if (result.screenshots && result.screenshots.length > 0) {
-        console.log(`\n📸 Screenshots: ${result.screenshots.length} captured`);
-        result.screenshots.forEach((screenshot) => {
-          console.log(`   - ${screenshot}`);
-        });
+      
+      console.log('\n✨ Test generation complete!\n');
+      console.log('📄 Generated Feature Files:');
+      generatedFiles.features.forEach(f => console.log(`   ${f}`));
+      
+      console.log('\n📝 Generated Step Definitions:');
+      generatedFiles.steps.forEach(f => console.log(`   ${f}`));
+      
+      console.log('\n🚀 To run the tests:');
+      console.log('   npm run test:api\n');
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      if (error.message.includes('API key')) {
+        console.error('\n💡 Make sure your OPENAI_API_KEY is set in .env file');
       }
-
-      if (result.video) {
-        console.log(`\n🎥 Video: ${result.video}`);
-      }
-
-      console.log('\n' + '='.repeat(60));
-
-      process.exit(result.success ? 0 : 1);
-    } catch (error) {
-      console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
   });
 
-program
-  .command('execute')
-  .description('Execute a Cucumber feature file')
-  .argument('<feature-file>', 'Path to .feature file')
-  .option('-b, --browser <browser>', 'Browser to use (chromium, firefox, webkit)', 'chromium')
-  .option('--require <path>', 'Path to step definitions (auto-detected if not provided)')
-  .action(async (featureFile: string, options: { browser?: string; require?: string }) => {
+// Endpoint command
+apiCommand
+  .command('endpoint')
+  .description('Generate tests for a specific endpoint')
+  .requiredOption('-s, --swagger <path>', 'Path to Swagger/OpenAPI file')
+  .requiredOption('-p, --path <path>', 'Endpoint path (e.g., /api/users)')
+  .requiredOption('-m, --method <method>', 'HTTP method (GET, POST, etc.)')
+  .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .action(async (options: {
+    swagger: string;
+    path: string;
+    method: string;
+    apiKey?: string;
+  }) => {
     try {
-      console.log(`🚀 Executing feature file: ${featureFile}`);
+      console.log('\n🎯 Endpoint Test Generator\n');
       
-      // Check if file exists
-      try {
-        await fs.access(featureFile);
-      } catch {
-        throw new Error(`Feature file not found: ${featureFile}`);
+      const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required. Set OPENAI_API_KEY env var or use --api-key option');
       }
 
-      // Auto-detect step definitions if not provided
-      let stepDefPath = options.require;
-      if (!stepDefPath) {
-        // Try to find step definitions in the same directory structure
-        const featureDir = path.dirname(featureFile);
-        const featureName = path.basename(featureFile, '.feature');
-        const stepsDir = path.join(featureDir, '..', 'steps', 'ui');
-        stepDefPath = path.join(stepsDir, `${featureName}.steps.ts`);
-        
-        // Check if it exists
+      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
+      const generator = new SimpleTestGenerator(apiKey);
+
+      const naturalLanguageInput = `Generate comprehensive test scenarios for ${options.method} ${options.path}. Include positive tests (valid requests), negative tests (invalid inputs, error conditions), boundary tests (edge cases), and security tests if applicable.`;
+
+      console.log('📖 Loading Swagger specification...');
+      const spec = await SwaggerParser.dereference(options.swagger) as any;
+
+      console.log('🤖 Generating test scenarios...');
+      const scenarios = await generator.generateTestScenarios(
+        naturalLanguageInput,
+        spec,
+        [options.path]
+      );
+
+      console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
+
+      const featureFiles: string[] = [];
+      const stepFiles: string[] = [];
+
+      console.log('📝 Generating Cucumber features and step definitions...\n');
+      
+      for (const scenario of scenarios) {
         try {
-          await fs.access(stepDefPath);
-        } catch {
-          // Try alternative location
-          stepDefPath = path.join('features', 'steps', 'ui', `${featureName}.steps.ts`);
-          try {
-            await fs.access(stepDefPath);
-          } catch {
-            throw new Error(`Step definitions not found. Expected: ${stepDefPath}`);
+          console.log(`   Processing: ${scenario.name}...`);
+          
+          const featureContent = await generator.generateCucumberFeature(scenario, spec);
+          const featurePath = generator.writeFeatureFile(scenario, featureContent);
+          featureFiles.push(featurePath);
+          
+          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec);
+          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
+          stepFiles.push(stepPath);
+          
+          console.log(`   ✅ ${scenario.name}`);
+        } catch (error: any) {
+          console.error(`   ❌ Error generating ${scenario.name}: ${error.message}`);
+        }
+      }
+
+      console.log('\n✨ Test generation complete!');
+      console.log(`\n📄 Generated ${featureFiles.length} feature files and ${stepFiles.length} step definition files\n`);
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+// Tag command
+apiCommand
+  .command('tag')
+  .description('Generate tests for all endpoints with a specific tag')
+  .requiredOption('-s, --swagger <path>', 'Path to Swagger/OpenAPI file')
+  .requiredOption('-t, --tag <tag>', 'Swagger tag name')
+  .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .action(async (options: {
+    swagger: string;
+    tag: string;
+    apiKey?: string;
+  }) => {
+    try {
+      console.log('\n🏷️  Tag-based Test Generator\n');
+      
+      const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required. Set OPENAI_API_KEY env var or use --api-key option');
+      }
+
+      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
+      const generator = new SimpleTestGenerator(apiKey);
+
+      console.log('📖 Loading Swagger specification...');
+      const spec = await SwaggerParser.dereference(options.swagger) as any;
+      
+      // Find all endpoints with this tag
+      const paths = spec.paths || {};
+      const taggedEndpoints: string[] = [];
+      
+      for (const [path, pathItem] of Object.entries(paths)) {
+        for (const [method, operation] of Object.entries(pathItem as any)) {
+          const op = operation as any;
+          if (op.tags && op.tags.includes(options.tag)) {
+            taggedEndpoints.push(path);
+            break; // Only add path once
           }
         }
       }
 
-      console.log(`📄 Step definitions: ${stepDefPath}`);
-      console.log(`🌐 Browser: ${options.browser || 'chromium'}\n`);
-
-      // Run cucumber-js
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-
-      const command = `npx cucumber-js "${featureFile}" --require "${stepDefPath}" --require-module tsx/esm --format progress-bar`;
-
-      try {
-        const { stdout, stderr } = await execAsync(command, {
-          cwd: process.cwd(),
-          env: { ...process.env },
-        });
-        
-        if (stdout) console.log(stdout);
-        if (stderr) console.error(stderr);
-      } catch (error: any) {
-        // Cucumber exits with non-zero on failures, which is normal
-        if (error.stdout) console.log(error.stdout);
-        if (error.stderr) console.error(error.stderr);
-        process.exit(error.code || 1);
+      if (taggedEndpoints.length === 0) {
+        throw new Error(`No endpoints found with tag: ${options.tag}`);
       }
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : String(error));
+
+      console.log(`✅ Found ${taggedEndpoints.length} endpoints with tag "${options.tag}"\n`);
+
+      const naturalLanguageInput = `Generate comprehensive test scenarios for all endpoints with tag "${options.tag}". Include positive, negative, boundary, and security test cases.`;
+
+      console.log('🤖 Generating test scenarios...');
+      const scenarios = await generator.generateTestScenarios(
+        naturalLanguageInput,
+        spec,
+        taggedEndpoints
+      );
+
+      console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
+
+      const featureFiles: string[] = [];
+      const stepFiles: string[] = [];
+
+      console.log('📝 Generating Cucumber features and step definitions...\n');
+      
+      for (const scenario of scenarios) {
+        try {
+          console.log(`   Processing: ${scenario.name}...`);
+          
+          const featureContent = await generator.generateCucumberFeature(scenario, spec);
+          const featurePath = generator.writeFeatureFile(scenario, featureContent);
+          featureFiles.push(featurePath);
+          
+          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec);
+          const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
+          stepFiles.push(stepPath);
+          
+          console.log(`   ✅ ${scenario.name}`);
+        } catch (error: any) {
+          console.error(`   ❌ Error generating ${scenario.name}: ${error.message}`);
+        }
+      }
+
+      console.log('\n✨ Test generation complete!');
+      console.log(`\n📄 Generated ${featureFiles.length} feature files and ${stepFiles.length} step definition files\n`);
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+// Self-heal command
+apiCommand
+  .command('heal')
+  .description('Self-heal: automatically detect and fix missing step definitions')
+  .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .action(async (options: { apiKey?: string }) => {
+    try {
+      console.log('\n🔧 Self-Healing API Tests\n');
+      
+      const { SelfHealing } = await import('../api-generator/self-healing.js');
+      const healer = new SelfHealing();
+      
+      await healer.heal();
+      
+      console.log('\n✅ Self-healing complete! Run tests again to verify fixes.\n');
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
       process.exit(1);
     }
   });
 
 program.parse();
-

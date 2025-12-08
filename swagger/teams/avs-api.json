@@ -1,0 +1,380 @@
+{
+    "swagger": "2.0",
+    "info": {
+      "description": "REST API for the Address Validation Service.",
+      "version": "API TOS",
+      "title": "AVS REST API",
+      "termsOfService": "Terms of service",
+      "contact": {
+        "name": "Chewy.com",
+        "url": "www.chewy.com",
+        "email": "none@chewy.com"
+      },
+      "license": {
+        "name": "License of API",
+        "url": "API license URL"
+      }
+    },
+    "host": "avs.use1.scff.prd.chewy.com",
+    "basePath": "/",
+    "tags": [
+      {
+        "name": "avs-controller",
+        "description": "AVS Controller"
+      }
+    ],
+    "paths": {
+      "/avs/v1.0/suggestAddresses": {
+        "post": {
+          "tags": [
+            "avs-controller"
+          ],
+          "summary": "Validates the address or returns suggestions.",
+          "description": "If the address is not valid then the addresses returned are suggested alternatives. Return order represents highest recomended suggestion to lowest",
+          "operationId": "suggestAddressesUsingPOST",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "address",
+              "description": "address",
+              "required": true,
+              "schema": {
+                "$ref": "#/definitions/AVSAddress"
+              }
+            },
+            {
+              "name": "engine",
+              "in": "query",
+              "description": "The name of the Address Validation Engine to use, if not provided the default will be used (recomended)",
+              "required": false,
+              "type": "string",
+              "allowEmptyValue": true
+            },
+            {
+              "name": "maxSuggestions",
+              "in": "query",
+              "description": "The maximum number of suggestions to return",
+              "required": false,
+              "type": "integer",
+              "default": 5,
+              "format": "int32",
+              "allowEmptyValue": false
+            },
+            {
+              "name": "percentMatch",
+              "in": "query",
+              "description": "The minimum confidence level an address should have before it can be returned as a suggested address",
+              "required": false,
+              "type": "integer",
+              "default": 85,
+              "maximum": 100,
+              "exclusiveMaximum": false,
+              "minimum": 0,
+              "exclusiveMinimum": false,
+              "format": "int32",
+              "allowEmptyValue": false
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Engine successfully processed the request (check the ResponseCode in the returned data)",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AVSResponse"
+                }
+              }
+            },
+            "201": {
+              "description": "Created"
+            },
+            "401": {
+              "description": "Unauthorized"
+            },
+            "403": {
+              "description": "Forbidden"
+            },
+            "404": {
+              "description": "Not Found"
+            },
+            "500": {
+              "description": "An internal error occurred while processing the request"
+            }
+          },
+          "deprecated": false
+        }
+      },
+      "/avs/v1.0/verifyAddress": {
+        "post": {
+          "tags": [
+            "avs-controller"
+          ],
+          "summary": "Validates a given address",
+          "operationId": "verifyAddressUsingPOST",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "address",
+              "description": "address",
+              "required": true,
+              "schema": {
+                "$ref": "#/definitions/AVSAddress"
+              }
+            },
+            {
+              "name": "engine",
+              "in": "query",
+              "description": "The name of the Address Validation Engine to use, if not provided the default will be used (recommended)",
+              "required": false,
+              "type": "string",
+              "allowEmptyValue": true
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The engine was able to process the request, check response object for details",
+              "schema": {
+                "$ref": "#/definitions/AVSResponse"
+              }
+            },
+            "201": {
+              "description": "Created"
+            },
+            "400": {
+              "description": "The request did not contain a body or was otherwise invalid"
+            },
+            "401": {
+              "description": "Unauthorized"
+            },
+            "403": {
+              "description": "Forbidden"
+            },
+            "404": {
+              "description": "Not Found"
+            },
+            "500": {
+              "description": "An internal error occurred while processing the request"
+            }
+          },
+          "deprecated": false
+        }
+      },
+      "/avs/v1.0/verifyBulkAddress": {
+        "post": {
+          "tags": [
+            "avs-controller"
+          ],
+          "summary": "Validates given set of addresses. Limited to no more then 100 per request, All addresses should be in the same country",
+          "operationId": "verifyBulkAddressUsingPOST",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "body",
+              "name": "addresses",
+              "description": "addresses",
+              "required": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AVSAddress"
+                }
+              }
+            },
+            {
+              "name": "engine",
+              "in": "query",
+              "description": "The name of the Address Validation Engine to use, if not provided the default will be used (recommended)",
+              "required": false,
+              "type": "string",
+              "allowEmptyValue": true
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The engine was able to process the request, check response object for details",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AVSResponse"
+                }
+              }
+            },
+            "201": {
+              "description": "Created"
+            },
+            "400": {
+              "description": "The request did not contain a body or was otherwise invalid (e.g. no addresses supplied)"
+            },
+            "401": {
+              "description": "Unauthorized"
+            },
+            "403": {
+              "description": "Forbidden"
+            },
+            "404": {
+              "description": "Not Found"
+            },
+            "500": {
+              "description": "An internal error occurred while processing the request"
+            }
+          },
+          "deprecated": false
+        }
+      }
+    },
+    "definitions": {
+      "AVSAddress": {
+        "type": "object",
+        "required": [
+          "streets"
+        ],
+        "properties": {
+          "addressType": {
+            "type": "string",
+            "description": "Indicates the type of address, RESIDENTIAL, BUSINESS or UNKNOWN"
+          },
+          "city": {
+            "type": "string",
+            "description": "The city this address is in"
+          },
+          "country": {
+            "type": "string",
+            "description": "The country the address is in, defaults to US"
+          },
+          "geocodeData": {
+            "description": "The latitude and longitude coordinates of the address, as well as the confidence level of those coordinates and the engine used to calculate it",
+            "$ref": "#/definitions/GeocodeData"
+          },
+          "postalCode": {
+            "type": "string",
+            "description": "The postal (aka zip) code for this address"
+          },
+          "stateOrProvince": {
+            "type": "string",
+            "description": "The State or Province this address is in"
+          },
+          "streets": {
+            "type": "array",
+            "description": "The street portion of the address, must have at least 1 entry",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": "AVSAddress",
+        "description": "This class represents an address, it can be used for both requests and responses."
+      },
+      "AVSResponse": {
+        "type": "object",
+        "properties": {
+          "cityChanged": {
+            "type": "boolean",
+            "description": "Indicates that the city was changed from requestAddress"
+          },
+          "engineResponseCode": {
+            "type": "string",
+            "description": "The engine that was used to validate the response",
+            "enum": [
+              "AVS_FEDEX",
+              "AVS_EXPERIAN"
+            ]
+          },
+          "postalChanged": {
+            "type": "boolean",
+            "description": "Indicates that the postal (aka zip) code was changed from requestAddress. For US addresses this will usually be modified to add te '+4' portion"
+          },
+          "requestAddress": {
+            "description": "The address passed from the client to validate",
+            "$ref": "#/definitions/AVSAddress"
+          },
+          "requestAddressSanitized": {
+            "description": "If the address passed from the client was unable to validate, we sanitize it and return it in this field",
+            "$ref": "#/definitions/AVSAddress"
+          },
+          "responseCode": {
+            "type": "string",
+            "description": "The result code which indicates if the address was validated or not",
+            "enum": [
+              "VERIFIED",
+              "PREMISES_PARTIAL",
+              "STREET_PARTIAL",
+              "NOT_VERIFIED",
+              "CORRECTED"
+            ]
+          },
+          "shippableResponseCode": {
+            "type": "string",
+            "description": "The result code which indicates if the address was validated by srm or not",
+            "enum": [
+              "SHIPPABLE",
+              "NOT_SHIPPABLE",
+              "NOT_VALIDATED"
+            ]
+          },
+          "stateProvinceChanged": {
+            "type": "boolean",
+            "description": "Indicates that the state or province was changed from requestAddress"
+          },
+          "streetChanged": {
+            "type": "boolean",
+            "description": "Indicates that the street was changed from requestAddress"
+          },
+          "validatedAddress": {
+            "description": "If the address was validated, the corrected address will be here (e.g. only is ResponseCode is 'VERIFIED' or 'CORRECTED')",
+            "$ref": "#/definitions/AVSAddress"
+          }
+        },
+        "title": "AVSResponse",
+        "description": "Returned by the AVS engine to indicate if an address was validated or not."
+      },
+      "GeocodeData": {
+        "type": "object",
+        "properties": {
+          "confidenceLevel": {
+            "type": "string",
+            "description": "The confidence of the latitude and longitude coordinates",
+            "enum": [
+              "DELIVERY_POINT",
+              "ZIPCODE",
+              "UNKNOWN"
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "The engine used to calculate the latitude and longitude coordinates",
+            "enum": [
+              "AVS_FEDEX",
+              "AVS_EXPERIAN"
+            ]
+          },
+          "latitude": {
+            "type": "string",
+            "description": "The latitude coordinate of the address"
+          },
+          "longitude": {
+            "type": "string",
+            "description": "The longitude coordinate of the address"
+          }
+        },
+        "title": "GeocodeData",
+        "description": "This class represents geocode data of an address."
+      }
+    }
+  }
