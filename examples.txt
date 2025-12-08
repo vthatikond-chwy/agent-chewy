@@ -1,0 +1,1 @@
+cd /Users/vthatikond/IdeaProjects/agent-chewy && npm run api:generate -- -s swagger/teams/avs-api.json -i "Generate exactly 2 test scenarios: 1) Test verifyAddress endpoint with a valid US address expecting 200 status. 2) Test suggestAddresses endpoint with an incomplete address expecting 200 status with suggestions."

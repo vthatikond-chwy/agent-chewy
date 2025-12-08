@@ -25,10 +25,12 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
     };
   }
 
-  // Handle $ref references
+  // Handle $ref references - support both OpenAPI 3.0 and Swagger 2.0
   if (schema.$ref) {
-    const refPath = schema.$ref.replace('#/components/schemas/', '');
-    const refSchema = spec.components?.schemas?.[refPath];
+    // OpenAPI 3.0: #/components/schemas/AVSAddress
+    // Swagger 2.0: #/definitions/AVSAddress
+    let refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
+    let refSchema = spec.components?.schemas?.[refPath] || spec.definitions?.[refPath];
     if (refSchema) {
       return analyzeSchema(refSchema, spec);
     }
@@ -57,25 +59,37 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
     for (const [key, value] of Object.entries(properties)) {
       const prop = value as any;
       
-      // Skip complex nested objects/arrays for initial request
-      // Only include simple types and top-level fields
-      if (prop.type && ['string', 'integer', 'number', 'boolean'].includes(prop.type)) {
+      // Handle array types (like streets: [string])
+      if (prop.type === 'array' && prop.items) {
+        // Arrays are required if in required list, but we'll handle them specially
         if (required.includes(key)) {
           requiredFields.push(key);
         } else {
           optionalFields.push(key);
         }
-      } else if (!prop.type || prop.type === 'object' || prop.type === 'array') {
+      }
+      // Skip complex nested objects/arrays for initial request
+      // Only include simple types and top-level fields
+      else if (prop.type && ['string', 'integer', 'number', 'boolean'].includes(prop.type)) {
+        if (required.includes(key)) {
+          requiredFields.push(key);
+        } else {
+          optionalFields.push(key);
+        }
+      } else if (!prop.type || prop.type === 'object') {
         // Complex nested structure - mark as optional for now
         optionalFields.push(key);
       }
     }
 
-    // Build example with only required fields
+    // Build example with required fields
     const example: any = {};
     requiredFields.forEach(field => {
       const prop = properties[field] as any;
-      if (prop.type === 'string') {
+      if (prop.type === 'array' && prop.items) {
+        // For arrays, provide a single-item array example
+        example[field] = prop.items.type === 'string' ? ['example'] : [prop.items.example || 'example'];
+      } else if (prop.type === 'string') {
         example[field] = prop.example || 'example';
       } else if (prop.type === 'integer' || prop.type === 'number') {
         example[field] = prop.example || 123;

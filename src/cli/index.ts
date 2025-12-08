@@ -165,7 +165,7 @@ apiCommand
           console.log(`   🔨 ${scenario.name}`);
           
           // Generate Cucumber feature
-          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec);
+          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec, options.swagger);
           const featurePath = generator.writeFeatureFile(scenario, cucumberFeature, service, category);
           generatedFiles.features.push(featurePath);
           
@@ -254,7 +254,7 @@ apiCommand
         try {
           console.log(`   Processing: ${scenario.name}...`);
           
-          const featureContent = await generator.generateCucumberFeature(scenario, spec);
+          const featureContent = await generator.generateCucumberFeature(scenario, spec, options.swagger);
           const featurePath = generator.writeFeatureFile(scenario, featureContent, service);
           featureFiles.push(featurePath);
           
@@ -348,7 +348,7 @@ apiCommand
         try {
           console.log(`   Processing: ${scenario.name}...`);
           
-          const featureContent = await generator.generateCucumberFeature(scenario, spec);
+          const featureContent = await generator.generateCucumberFeature(scenario, spec, options.swagger);
           const featurePath = generator.writeFeatureFile(scenario, featureContent, service);
           featureFiles.push(featurePath);
           

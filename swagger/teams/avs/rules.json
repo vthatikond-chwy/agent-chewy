@@ -1,0 +1,121 @@
+{
+  "teamName": "avs",
+  "responsePatterns": {
+    "arrayResponseEndpoints": [
+      "/avs/v1.0/suggestAddresses"
+    ],
+    "objectResponseEndpoints": [
+      "/avs/v1.0/verifyAddress",
+      "/avs/v1.0/verifyBulkAddress"
+    ],
+    "arrayResponseStructure": {
+      "/avs/v1.0/suggestAddresses": {
+        "description": "Returns array of AVSResponse objects",
+        "structure": "Array<AVSResponse>",
+        "itemStructure": {
+          "type": "object",
+          "properties": {
+            "requestAddress": {
+              "type": "object",
+              "properties": {
+                "streets": "array<string>",
+                "city": "string",
+                "stateOrProvince": "string",
+                "country": "string",
+                "postalCode": "string"
+              }
+            },
+            "validatedAddress": {
+              "type": "object",
+              "properties": {
+                "streets": "array<string>",
+                "city": "string",
+                "stateOrProvince": "string",
+                "country": "string",
+                "postalCode": "string"
+              }
+            },
+            "responseCode": "string"
+          }
+        },
+        "assertionNote": "Each item in the array is an AVSResponse object with requestAddress property, not a flat address object"
+      }
+    }
+  },
+  "normalizationRules": {
+    "addressComparison": "case-insensitive",
+    "postalCodeHandling": "prefix-match",
+    "streetNameHandling": "abbreviation-tolerant"
+  },
+  "queryParameterHandling": {
+    "/avs/v1.0/suggestAddresses": {
+      "parameters": ["maxSuggestions", "percentMatch", "engine"],
+      "required": []
+    },
+    "/avs/v1.0/verifyAddress": {
+      "parameters": ["engine"],
+      "required": []
+    }
+  },
+  "assertionPatterns": {
+    "responseCodeProperty": "responseCode",
+    "responseCodeValues": ["VERIFIED", "PREMISES_PARTIAL", "STREET_PARTIAL", "NOT_VERIFIED", "CORRECTED"],
+    "addressValidation": {
+      "useValidatedAddress": true,
+      "useRequestAddress": true,
+      "compareFields": ["city", "stateOrProvince", "country", "postalCode"]
+    }
+  },
+  "errorHandling": {
+    "errorProperty": "message",
+    "errorCodeProperty": "status"
+  },
+  "testData": {
+    "workingAddresses": {
+      "verifyAddress": {
+        "streets": ["1600 Amphitheatre Parkway"],
+        "city": "Mountain View",
+        "stateOrProvince": "CA",
+        "postalCode": "94043",
+        "country": "US"
+      },
+      "suggestAddresses": {
+        "streets": ["1600 Amphitheatre Pkwy"],
+        "city": "Mountain View",
+        "stateOrProvince": "CA",
+        "country": "US"
+      }
+    },
+    "requiredFields": {
+      "/avs/v1.0/verifyAddress": ["streets", "city", "stateOrProvince", "postalCode", "country"],
+      "/avs/v1.0/suggestAddresses": ["streets", "city", "country"]
+    },
+    "optionalFields": {
+      "/avs/v1.0/verifyAddress": ["addressType"],
+      "/avs/v1.0/suggestAddresses": ["stateOrProvince", "postalCode", "addressType"]
+    }
+  },
+  "featureFileGeneration": {
+    "stepTextPatterns": {
+      "endpointStep": "Given the API endpoint for {scenarioName} test is {string}",
+      "requestBodyStep": "And the request body for {scenarioName} is:",
+      "actionStep": "When I send a {method} request for {scenarioName}",
+      "statusStep": "Then the response status for {scenarioName} should be {int}",
+      "responseCodeStep": "And the response code for {scenarioName} should be {string}"
+    },
+    "dataTableFormat": {
+      "addressFields": ["streets", "city", "stateOrProvince", "postalCode", "country"],
+      "note": "streets field should be a single string value in the table (will be converted to array in step definition)"
+    },
+    "criticalRules": [
+      "Always include colon (:) after 'is' when using data tables: 'is:' not 'is'",
+      "Use endpoint path only (e.g., '/avs/v1.0/verifyAddress'), never full URL",
+      "Include scenario name in ALL step definitions to make them unique",
+      "For suggestAddresses, use incomplete address (missing postalCode) to trigger suggestions",
+      "ALWAYS use column headers as field names in data tables, NOT 'field | value' format",
+      "Data table format: | streets | city | stateOrProvince | country | (each field is a column)",
+      "Use working test data from rules.json - generic addresses like '123 Main St' cause 400 errors"
+    ]
+  }
+}
+

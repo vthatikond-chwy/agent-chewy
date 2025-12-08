@@ -113,3 +113,33 @@ export function getResponseTypeFromPattern(
   
   return 'unknown';
 }
+
+/**
+ * Get detailed response structure from successful pattern
+ * Returns structure information for array responses
+ */
+export function getResponseStructureFromPattern(
+  endpoint: string,
+  method: string
+): { itemStructure?: any; assertionNote?: string } | null {
+  const pattern = findPatternForEndpoint(endpoint, method);
+  if (!pattern || !Array.isArray(pattern.responseBody)) {
+    return null;
+  }
+  
+  const firstItem = pattern.responseBody[0];
+  if (!firstItem || typeof firstItem !== 'object') {
+    return null;
+  }
+  
+  return {
+    itemStructure: {
+      type: 'object',
+      properties: Object.keys(firstItem).reduce((acc, key) => {
+        acc[key] = typeof firstItem[key];
+        return acc;
+      }, {} as any)
+    },
+    assertionNote: `Each item in the array is an object with properties: ${Object.keys(firstItem).join(', ')}`
+  };
+}

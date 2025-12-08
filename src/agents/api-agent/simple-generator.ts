@@ -11,7 +11,8 @@ import { loadConfig } from './config.js';
 import { loadTeamConfig, getBaseUrl as getTeamBaseUrl } from './team-config.js';
 import type { TeamConfig } from './team-config.js';
 import { analyzeSchema, getMinimalRequestBody, getResponseTypeDescription } from './schema-analyzer.js';
-import { findPatternForEndpoint, getMinimalRequestBodyFromPattern, getResponseTypeFromPattern } from './self-healing.js';
+import { findPatternForEndpoint, getMinimalRequestBodyFromPattern, getResponseTypeFromPattern, getResponseStructureFromPattern } from './self-healing.js';
+import { loadTeamRules, getRulesContext } from './team-rules.js';
 
 dotenv.config();
 
@@ -65,13 +66,18 @@ export class SimpleTestGenerator {
    * Check if OAuth token should be used for this project
    */
   private shouldUseOAuthToken(swaggerSpecPath: string, teamConfig: TeamConfig | null): boolean {
-    // First check team config
-    if (teamConfig?.useOAuth) {
-      const tokenEnvVar = teamConfig.oauthTokenEnvVar || 'OAUTH_TOKEN';
-      return !!process.env[tokenEnvVar];
+    // First check team config - if it exists and explicitly sets useOAuth, respect it
+    if (teamConfig !== null) {
+      if (teamConfig.useOAuth === false) {
+        return false; // Explicitly disabled in team config
+      }
+      if (teamConfig.useOAuth === true) {
+        const tokenEnvVar = teamConfig.oauthTokenEnvVar || 'OAUTH_TOKEN';
+        return !!process.env[tokenEnvVar];
+      }
     }
 
-    // Fallback to global config
+    // Fallback to global config only if team config doesn't exist or doesn't specify
     if (!this.config.auth.useProjectNameMatching) {
       return false;
     }
@@ -126,7 +132,14 @@ export class SimpleTestGenerator {
       }
     }
 
-    const systemPrompt = `You are an expert API test architect. Generate comprehensive test scenarios from natural language requirements and API specifications.
+    // Parse natural language to detect exact number requested
+    const numberMatch = naturalLanguageInput.match(/(?:exactly|only|just)\s+(\d+)\s+test\s+scenario/i) || 
+                       naturalLanguageInput.match(/(\d+)\s+test\s+scenario/i);
+    const exactCount = numberMatch ? parseInt(numberMatch[1]) : null;
+    
+    const systemPrompt = `You are an expert API test architect. Generate test scenarios from natural language requirements and API specifications.
+
+${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCount > 1 ? 's' : ''}. Do NOT generate more or less.` : 'Generate test scenarios based on the requirements.'}
 
 Return ONLY valid JSON with no additional text, in this exact format:
 {
@@ -157,7 +170,7 @@ ${JSON.stringify({
   endpoints: endpoints
 }, null, 2)}
 
-Generate comprehensive test scenarios covering positive, negative, boundary, and security test cases.`;
+${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCount > 1 ? 's' : ''} as specified in the requirement. Focus only on the scenarios explicitly requested.` : 'Generate test scenarios based on the requirements provided.'}`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -188,7 +201,8 @@ Generate comprehensive test scenarios covering positive, negative, boundary, and
    */
   async generateCucumberFeature(
     scenario: TestScenario,
-    swaggerSpec: any
+    swaggerSpec: any,
+    swaggerSpecPath?: string
   ): Promise<string> {
     
     const systemPrompt = `You are an expert in writing Cucumber/Gherkin test scenarios for API testing.
@@ -196,6 +210,72 @@ Generate clear, executable BDD scenarios following best practices.
 Return ONLY the Cucumber feature text, no markdown code blocks or explanations.`;
 
     const scenarioName = scenario.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    
+    // Load team rules
+    const teamRules = swaggerSpecPath ? loadTeamRules(swaggerSpecPath) : null;
+    const rulesContext = getRulesContext(teamRules);
+    
+    // Analyze Swagger schema to get required fields and example data
+    let schemaInfo = '';
+    let exampleData = '';
+    try {
+      const endpoint = swaggerSpec.paths?.[scenario.endpoint]?.[scenario.method.toLowerCase()];
+      if (endpoint?.requestBody) {
+        const requestSchema = endpoint.requestBody?.content?.['application/json']?.schema ||
+                             endpoint.requestBody?.schema;
+        if (requestSchema) {
+          const analyzed = analyzeSchema(requestSchema, swaggerSpec);
+          schemaInfo = `\nRequest Schema Analysis:
+- Required fields: ${analyzed.requiredFields.join(', ')}
+- Optional fields: ${analyzed.optionalFields.join(', ')}`;
+          
+          // Use working test data from rules if available
+          if (teamRules?.testData?.workingAddresses) {
+            // Try to match endpoint name
+            const endpointName = scenario.endpoint.split('/').pop() || '';
+            let workingData = teamRules.testData.workingAddresses[endpointName] ||
+                            teamRules.testData.workingAddresses[scenario.endpoint] ||
+                            teamRules.testData.workingAddresses.verifyAddress ||
+                            teamRules.testData.workingAddresses.suggestAddresses;
+            
+            // For suggestAddresses, prefer suggestAddresses data
+            if (scenario.endpoint.includes('suggest')) {
+              workingData = teamRules.testData.workingAddresses.suggestAddresses || workingData;
+            }
+            // For verifyAddress, prefer verifyAddress data
+            if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+              workingData = teamRules.testData.workingAddresses.verifyAddress || workingData;
+            }
+            
+            if (workingData) {
+              // Format as data table for feature file
+              const dataTableRows: string[] = [];
+              const fields = Object.keys(workingData);
+              dataTableRows.push(`      | ${fields.join(' | ')} |`);
+              const values = fields.map(f => {
+                const val = workingData[f];
+                return Array.isArray(val) ? val[0] : val;
+              });
+              dataTableRows.push(`      | ${values.join(' | ')} |`);
+              
+              exampleData = `\n\nCRITICAL - You MUST use this EXACT WORKING test data in the data table (known to work with the API):
+${dataTableRows.join('\n')}
+
+DO NOT use generic addresses like "123 Main St", "123 Elm St", "1600 Pennsylvania Ave NW", or "Washington DC" - these cause 400/500 errors.
+You MUST use the working test data provided above. Copy it EXACTLY as shown.`;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Schema analysis failed, continue without it
+    }
+    
+    // Get required/optional fields from rules
+    let requiredFieldsInfo = '';
+    if (teamRules?.testData?.requiredFields?.[scenario.endpoint]) {
+      requiredFieldsInfo = `\nRequired fields for this endpoint: ${teamRules.testData.requiredFields[scenario.endpoint].join(', ')}`;
+    }
     
     const userPrompt = `Generate a Cucumber/Gherkin feature file for this API test scenario:
 
@@ -207,6 +287,7 @@ API Context:
 - Endpoint: ${scenario.method} ${scenario.endpoint}
 - Scenario Name: ${scenario.name}
 - Scenario ID: ${scenarioName}
+${schemaInfo}${requiredFieldsInfo}${exampleData}
 
 Format:
 Feature: [Feature name]
@@ -223,18 +304,34 @@ CRITICAL REQUIREMENTS:
    - Example: "Given the API endpoint for ${scenarioName} test is {string}" instead of "Given the API endpoint is {string}"
    - Example: "When I send a POST request for ${scenarioName}" instead of "When I send a POST request"
    - Use "${scenarioName}" in step text to make it unique
-3. For AVS API, use endpoint "/avs/v1.0/verifyAddress" (NOT the full URL, just the path)
-   - CORRECT: Given the API endpoint for ${scenarioName} test is "/avs/v1.0/verifyAddress"
-   - WRONG: Given the API endpoint for ${scenarioName} test is "https://avs.scff.stg.chewy.com/avs/v1.0/verifyAddress"
-4. Use clear, business-readable language
-5. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
-6. For address data, streets should be an array format in the request body
+3. CRITICAL: Always include colon (:) after 'is' when using data tables
+   - CORRECT: "And the request body for ${scenarioName} is:"
+   - WRONG: "And the request body for ${scenarioName} is"
+4. For AVS API, use endpoint path only (NOT the full URL, just the path)
+   - CORRECT: Given the API endpoint for ${scenarioName} test is "${scenario.endpoint}"
+   - WRONG: Given the API endpoint for ${scenarioName} test is "https://avs.scff.stg.chewy.com${scenario.endpoint}"
+5. Use clear, business-readable language
+6. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
+7. For address data in data tables, streets should be a single string value (will be converted to array in step definition)
+8. CRITICAL - Use the EXACT working test data provided above - copy it EXACTLY as shown
+   - DO NOT modify the addresses (e.g., don't change "Mountain View" to "Washington" or "1600 Amphitheatre Parkway" to "1600 Pennsylvania Ave NW")
+   - DO NOT use generic addresses - they cause API errors
+   - The working test data is proven to work with the API
+9. CRITICAL - Data table format: ALWAYS use column headers as field names for request bodies
+   - CORRECT format: | streets | city | stateOrProvince | country |
+   - WRONG format: | field | value | (this is ONLY for 2-column key-value pairs, NOT for request bodies)
+   - For request bodies with multiple fields, each field must be a column header
+   - Example CORRECT data table:
+     | streets | city | stateOrProvince | postalCode | country |
+     | 1600 Amphitheatre Parkway | Mountain View | CA | 94043 | US |
+${teamRules?.featureFileGeneration?.criticalRules ? `\n9. Additional critical rules:\n${teamRules.featureFileGeneration.criticalRules.map((r: string) => `   - ${r}`).join('\n')}` : ''}
 
-Example data table format for address:
-    | streets       | city    | stateOrProvince | postalCode | country |
-    | 600 HARLAN CT | Bonaire | GA              | 31005-5427 | US      |
+IMPORTANT: The example data table above shows WORKING test data. You MUST use this exact data, not generic addresses.
 
-CRITICAL: Always use just the endpoint path (e.g., "/avs/v1.0/verifyAddress"), never the full URL in feature files.`;
+CRITICAL: 
+- Always use just the endpoint path (e.g., "${scenario.endpoint}"), never the full URL in feature files
+- Always include colon (:) after 'is' when using data tables
+- Use working test data provided above${rulesContext ? `\n\n${rulesContext}` : ''}`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -253,6 +350,39 @@ CRITICAL: Always use just the endpoint path (e.g., "/avs/v1.0/verifyAddress"), n
       
       // Ensure feature files use path only, not full URL
       content = content.replace(/https:\/\/avs\.scff\.stg\.chewy\.com\/avs\/v1\.0\/verifyAddress/g, '/avs/v1.0/verifyAddress');
+      
+      // Post-process: Replace ANY non-working addresses with working test data from rules
+      if (teamRules?.testData?.workingAddresses) {
+        let workingData = null;
+        if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+          workingData = teamRules.testData.workingAddresses.verifyAddress;
+        } else if (scenario.endpoint.includes('suggest')) {
+          workingData = teamRules.testData.workingAddresses.suggestAddresses;
+        }
+        
+        if (workingData) {
+          const workingStreet = Array.isArray(workingData.streets) ? workingData.streets[0] : workingData.streets;
+          const workingCity = workingData.city;
+          const workingState = workingData.stateOrProvince;
+          const workingPostal = workingData.postalCode;
+          const workingCountry = workingData.country;
+          
+          // Find and replace the data table row with working data
+          // Pattern: | streets | city | stateOrProvince | postalCode | country |
+          //          | value1  | value2 | value3 | value4 | value5 |
+          if (scenario.endpoint.includes('verify')) {
+            // Replace any address data table with working data
+            const dataTablePattern = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*postalCode\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
+            const replacement = `| streets | city | stateOrProvince | postalCode | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingPostal} | ${workingCountry} |`;
+            content = content.replace(dataTablePattern, replacement);
+          } else if (scenario.endpoint.includes('suggest')) {
+            // For suggestAddresses, postalCode is optional
+            const dataTablePattern = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
+            const replacement = `| streets | city | stateOrProvince | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingCountry} |`;
+            content = content.replace(dataTablePattern, replacement);
+          }
+        }
+      }
       
       return content;
       
@@ -280,6 +410,10 @@ Return ONLY the TypeScript code, properly formatted. Do NOT include markdown cod
     // Load team config if swagger spec path is provided
     const teamConfig = swaggerSpecPath ? loadTeamConfig(swaggerSpecPath) : null;
     
+    // Load team-specific rules
+    const teamRules = swaggerSpecPath ? loadTeamRules(swaggerSpecPath) : null;
+    const rulesContext = getRulesContext(teamRules);
+    
     // Get base URL from team config or swagger spec
     const baseUrl = getTeamBaseUrl(teamConfig, swaggerSpec);
     
@@ -305,6 +439,7 @@ Return ONLY the TypeScript code, properly formatted. Do NOT include markdown cod
     if (learnedPattern) {
       const minimalBody = getMinimalRequestBodyFromPattern(endpointPath, method);
       const responseType = getResponseTypeFromPattern(endpointPath, method);
+      const responseStructure = getResponseStructureFromPattern(endpointPath, method);
       
       requestBodyInfo = `
 IMPORTANT - Request Body Structure (from successful test patterns):
@@ -317,6 +452,11 @@ IMPORTANT - Request Body Structure (from successful test patterns):
         responseTypeInfo = 'The API returns just the user ID as an integer (number), not an object with properties.';
       } else if (responseType === 'object') {
         responseTypeInfo = 'The API returns an object with properties.';
+      } else if (responseType === 'array' && responseStructure) {
+        responseTypeInfo = `The API returns an array. ${responseStructure.assertionNote || ''}\n` +
+          `Each item structure: ${JSON.stringify(responseStructure.itemStructure?.properties || {}, null, 2)}`;
+      } else if (responseType === 'array') {
+        responseTypeInfo = 'The API returns an array. Check team rules for the exact structure of each array item.';
       }
     } else {
       // Fall back to schema analysis
@@ -356,6 +496,11 @@ IMPORTANT - Request Body Structure (from Swagger schema):
 Feature File:
 ${cucumberFeature}
 
+CRITICAL: The step definitions MUST match the EXACT step text from the feature file above.
+- If the feature file says "Then the response status code should be 200 for {scenarioName}", the step definition must use that EXACT text
+- If the feature file says "Then the response status for {scenarioName} should be 200", the step definition must use that EXACT text
+- DO NOT change the step text - match it exactly as written in the feature file
+
 API Details:
 - Base URL: ${baseUrl}
 - Endpoint: ${scenario.method} ${scenario.endpoint}
@@ -365,6 +510,7 @@ API Details:
 ${useOAuth ? `- Authentication: OAuth Bearer token required (use process.env.${oauthTokenEnvVar})` : ''}
 ${requestBodyInfo}
 ${responseTypeInfo ? `\nIMPORTANT - Response Structure:\n${responseTypeInfo}\n` : ''}
+${rulesContext ? `\n${rulesContext}\n` : ''}
 
 CRITICAL REQUIREMENTS:
 1. Use @cucumber/cucumber (Given, When, Then, World)
@@ -380,7 +526,13 @@ CRITICAL REQUIREMENTS:
    - rowsHash() only works for 2-column tables (key-value pairs)
    - hashes() returns an array of objects for multi-column tables
    - Example: const rows = dataTable.hashes(); const addressData = rows[0];
-6. For AVS API addresses, convert streets to array format: streets: [addressData.streets]
+6. CRITICAL - Request Headers Data Table: When handling request headers from data tables, ALWAYS use this pattern:
+   - const rows = dataTable.hashes();
+   - const headerRow = rows[0];
+   - this.headers = { ...this.headers, ...headerRow };
+   - DO NOT use: for (const key in rows) { this.headers[key] = rows[key]; }
+   - DO NOT iterate over rows - extract the first row and merge with existing headers
+6. For address fields that are arrays (like streets), convert to array format: streets: [addressData.streets]
 7. Make step definitions UNIQUE and SPECIFIC - include scenario name/context in step text to avoid conflicts
    - Example: "Given the API endpoint for ${scenarioName} test is {string}" 
    - Example: "When I send a POST request for ${scenarioName}"
@@ -391,8 +543,12 @@ CRITICAL REQUIREMENTS:
 9. Handle errors properly with try/catch
 10. Add TypeScript types for World interface
 11. Include proper headers from team config${useOAuth ? ' and Authorization: Bearer token' : ''}
-12. For AVS API responses, use 'responseCode' field (not 'verificationStatus')
+12. ${teamRules?.assertionPatterns?.responseCodeProperty ? `Use '${teamRules.assertionPatterns.responseCodeProperty}' field for response codes (not 'status' or 'verificationStatus')` : 'Use appropriate response code field based on API structure'}
 13. DO NOT generate common steps like "the response status code should be {int}" - these are in common.steps.ts
+${teamRules?.responsePatterns?.arrayResponseEndpoints?.includes(scenario.endpoint) ? `14. CRITICAL: This endpoint (${scenario.endpoint}) returns an ARRAY directly, not an object with a property.\n   - Use: response.data (it's already an array)\n   - DO NOT use: response.data.suggestions or response.data.items\n   - Example: expect(response.data).to.be.an('array').that.is.not.empty;` : ''}
+${teamRules?.normalizationRules?.addressComparison === 'case-insensitive' ? `15. CRITICAL: Address comparisons must be CASE-INSENSITIVE.\n   - Use .toUpperCase() for both expected and actual values\n   - Example: expect(actual.toUpperCase()).to.equal(expected.toUpperCase());` : ''}
+${teamRules?.normalizationRules?.postalCodeHandling === 'prefix-match' ? `16. CRITICAL: Postal code handling - API may return ZIP+4 format.\n   - Check if response postal code includes/contains the request postal code\n   - Example: expect(responsePostalCode).to.include(requestPostalCode);` : ''}
+${teamRules?.queryParameterHandling?.[scenario.endpoint] ? `17. CRITICAL: This endpoint uses query parameters: ${teamRules.queryParameterHandling[scenario.endpoint].parameters?.join(', ')}\n   - Pass them in axios request: { params: { paramName: value } }\n   - Example: axios.post(url, body, { params: { maxSuggestions: 5 } })` : ''}
 ${useOAuth ? `14. IMPORTANT: Include Authorization header with Bearer token in all requests. Use process.env.${oauthTokenEnvVar} to get the token.` : ''}
 15. CRITICAL - Quoted Strings in Feature Files: When the feature file has quoted strings like "Content-Type" or "application/json", Cucumber treats them as parameters. 
    - Step definitions MUST use {string} placeholders instead of literal quoted text
@@ -589,6 +745,25 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       content = content.replace(
         /const\s+(\w+)\s*=\s*dataTable\.hashes\(\)\s*;\s*this\.requestBody\s*=\s*\1\s*;/g,
         'const rows = dataTable.hashes();\n  const $1 = rows[0];\n  this.requestBody = $1;'
+      );
+      
+      // Fix request headers parsing - ensure we correctly merge headers from data table
+      // Pattern: Given('...headers...include:', function (this: CustomWorld, dataTable) { ... })
+      content = content.replace(
+        /Given\([^)]*headers[^)]*include[^)]*\)[^}]*\{[^}]*const\s+rows\s*=\s*dataTable\.hashes\(\)\s*;[^}]*for\s*\([^)]*\)\s*\{[^}]*this\.headers\[[^\]]+\]\s*=\s*rows\[[^\]]+\]\s*;[^}]*\}/g,
+        (match) => {
+          // Replace with correct pattern: extract first row and merge with existing headers
+          return match.replace(
+            /const\s+rows\s*=\s*dataTable\.hashes\(\)\s*;[^}]*for\s*\([^)]*\)\s*\{[^}]*this\.headers\[[^\]]+\]\s*=\s*rows\[[^\]]+\]\s*;[^}]*\}/,
+            'const rows = dataTable.hashes();\n  const headerRow = rows[0];\n  this.headers = { ...this.headers, ...headerRow };'
+          );
+        }
+      );
+      
+      // Also fix simpler incorrect patterns for headers
+      content = content.replace(
+        /const\s+rows\s*=\s*dataTable\.hashes\(\)\s*;\s*for\s*\(const\s+key\s+in\s+rows\)\s*\{[^}]*this\.headers\[key\]\s*=\s*rows\[key\]\s*;[^}]*\}/g,
+        'const rows = dataTable.hashes();\n  const headerRow = rows[0];\n  this.headers = { ...this.headers, ...headerRow };'
       );
       
       // Fix duplicate else statements - remove multiple else blocks (more aggressive)
