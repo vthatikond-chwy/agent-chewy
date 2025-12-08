@@ -35,10 +35,15 @@
                 "postalCode": "string"
               }
             },
-            "responseCode": "string"
+            "responseCode": "string",
+            "cityChanged": "boolean",
+            "postalChanged": "boolean",
+            "stateProvinceChanged": "boolean",
+            "streetChanged": "boolean",
+            "engineResponseCode": "string"
           }
         },
-        "assertionNote": "Each item in the array is an AVSResponse object with requestAddress property, not a flat address object"
+        "assertionNote": "CRITICAL: Properties like cityChanged, postalChanged, stateProvinceChanged, streetChanged, responseCode, and engineResponseCode are at the TOP LEVEL of each response item, NOT inside requestAddress. Use: response.data[0].cityChanged, NOT response.data[0].requestAddress.cityChanged"
       }
     }
   },
@@ -96,6 +101,28 @@
       "/avs/v1.0/suggestAddresses": ["stateOrProvince", "postalCode", "addressType"]
     }
   },
+  "stepDefinitionPatterns": {
+    "dataTableParsing": {
+      "useRowsHashForColumns": 2,
+      "useHashesForColumns": 3,
+      "example": {
+        "twoColumn": "Given('the request body for [scenario-name] is:', function (this: CustomWorld, dataTable) {\n  const data = dataTable.rowsHash(); // Use rowsHash() for 2-column key-value tables\n  this.requestBody = {\n    registerType: data.registerType\n  };\n});",
+        "multiColumn": "Given('the request body for [scenario-name] is:', function (this: CustomWorld, dataTable) {\n  const rows = dataTable.hashes(); // Use hashes() for multi-column tables\n  const data = rows[0]; // Extract first row\n  this.requestBody = {\n    streets: [data.streets], // Convert streets to array if needed\n    city: data.city,\n    stateOrProvince: data.stateOrProvince,\n    postalCode: data.postalCode,\n    country: data.country\n  };\n});"
+      }
+    },
+    "arrayAccessPatterns": {
+      "inArrayPattern": "response[{int}].{property} should be in [{string}, {string}, {string}]",
+      "simpleArrayPattern": "response[{int}].{property} should be {value}",
+      "example": {
+        "inArray": "Then('the response[{int}].responseCode should be in [{string}, {string}, {string}] for [scenario-name]', function (this: CustomWorld, index: number, code1: string, code2: string, code3: string) {\n  const responseCode = this.response?.data[index]?.responseCode;\n  const expectedValues = [code1, code2, code3];\n  expect(expectedValues).to.include(responseCode);\n});",
+        "simple": "Then('the response[{int}].postalChanged should be true for [scenario-name]', function (this: CustomWorld, index: number) {\n  const postalChanged = this.response?.data[index]?.postalChanged;\n  expect(postalChanged).to.be.true;\n});"
+      }
+    },
+    "quotedStringHandling": {
+      "convertToPlaceholders": true,
+      "example": "Feature: 'the responseCode should be \"VERIFIED\"'\nStep Def: Then('the responseCode should be {string} for [scenario-name]', function (this: CustomWorld, expectedCode: string) {\n  expect(responseCode).to.equal(expectedCode);\n});"
+    }
+  },
   "featureFileGeneration": {
     "stepTextPatterns": {
       "endpointStep": "Given the API endpoint for {scenarioName} test is {string}",
@@ -109,13 +136,17 @@
       "note": "streets field should be a single string value in the table (will be converted to array in step definition)"
     },
     "criticalRules": [
-      "Always include colon (:) after 'is' when using data tables: 'is:' not 'is'",
-      "Use endpoint path only (e.g., '/avs/v1.0/verifyAddress'), never full URL",
-      "Include scenario name in ALL step definitions to make them unique",
+      "CRITICAL: Always include colon (:) after 'is' when using data tables - CORRECT: 'And the request body for {scenarioName} is:' WRONG: 'And the request body for {scenarioName} is'",
+      "CRITICAL: Use endpoint path only (e.g., '/avs/v1.0/verifyAddress'), never full URL - CORRECT: Given the API endpoint for {scenarioName} test is \"{endpoint}\" WRONG: Given the API endpoint for {scenarioName} test is \"https://avs.scff.stg.chewy.com{endpoint}\"",
+      "CRITICAL: Include scenario name in ALL step definitions to make them unique - Use {scenarioName} in step text",
+      "CRITICAL: For address data in data tables, streets should be a single string value (will be converted to array in step definition)",
+      "CRITICAL: Use the EXACT working test data provided above - copy it EXACTLY as shown - DO NOT modify addresses (e.g., don't change 'Mountain View' to 'Washington' or '1600 Amphitheatre Parkway' to '1600 Pennsylvania Ave NW') - DO NOT use generic addresses - they cause API errors",
+      "CRITICAL: Data table format - ALWAYS use column headers as field names for request bodies - CORRECT: | streets | city | stateOrProvince | country | - WRONG: | field | value | (this is ONLY for 2-column key-value pairs, NOT for request bodies) - For request bodies with multiple fields, each field must be a column header",
       "For suggestAddresses, use incomplete address (missing postalCode) to trigger suggestions",
-      "ALWAYS use column headers as field names in data tables, NOT 'field | value' format",
-      "Data table format: | streets | city | stateOrProvince | country | (each field is a column)",
-      "Use working test data from rules.json - generic addresses like '123 Main St' cause 400 errors"
+      "CRITICAL - Use working test data from rules.json: ALWAYS use the exact addresses from testData.workingAddresses - generic addresses like '123 Main St', '123 Palm Tree Rd', '456 Disney Ln', 'Miami', 'Orlando' cause 400/500 errors",
+      "For verifyAddress endpoint: MUST use streets: ['600 HARLAN CT'], city: 'Bonaire', stateOrProvince: 'GA', postalCode: '31005-5427', country: 'US'",
+      "For suggestAddresses endpoint: MUST use streets: ['1600 Amphitheatre Pkwy'], city: 'Mountain View', stateOrProvince: 'CA', country: 'US'",
+      "CRITICAL - Data Table Consistency: Data tables MUST have consistent column counts. Header row column count must match all data rows. Generator will automatically fix mismatches by truncating extra columns."
     ]
   }
 }

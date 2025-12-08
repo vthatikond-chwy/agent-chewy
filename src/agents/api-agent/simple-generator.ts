@@ -44,7 +44,7 @@ export class SimpleTestGenerator {
    * Extract project name from swagger spec path
    * Example: swagger/teams/kyrios/kyrios-api.json -> kyrios
    */
-  private extractProjectName(swaggerSpecPath: string): string | null {
+  extractProjectName(swaggerSpecPath: string): string | null {
     try {
       const normalizedPath = path.normalize(swaggerSpecPath);
       const parts = normalizedPath.split(path.sep);
@@ -137,7 +137,25 @@ export class SimpleTestGenerator {
                        naturalLanguageInput.match(/(\d+)\s+test\s+scenario/i);
     const exactCount = numberMatch ? parseInt(numberMatch[1]) : null;
     
+    // Build endpoint context with Swagger summaries/descriptions for better endpoint selection
+    const endpointContext = endpoints.map(ep => ({
+      path: ep.path,
+      method: ep.method,
+      summary: ep.summary || '',
+      description: ep.description || '',
+      operationId: (ep as any).operationId || ''
+    })).map(ep => 
+      `- ${ep.method} ${ep.path}\n  Summary: ${ep.summary}\n  Description: ${ep.description || 'N/A'}`
+    ).join('\n\n');
+
     const systemPrompt = `You are an expert API test architect. Generate test scenarios from natural language requirements and API specifications.
+
+CRITICAL - Endpoint Selection Based on Swagger Spec:
+Use the Swagger endpoint summaries and descriptions to choose the CORRECT endpoint:
+${endpointContext}
+
+For "validate" or "verification" scenarios, prefer endpoints with "validate" or "verify" in their summary/description.
+For "suggest" or "suggestion" scenarios, prefer endpoints with "suggest" in their summary/description.
 
 ${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCount > 1 ? 's' : ''}. Do NOT generate more or less.` : 'Generate test scenarios based on the requirements.'}
 
@@ -258,11 +276,21 @@ Return ONLY the Cucumber feature text, no markdown code blocks or explanations.`
               });
               dataTableRows.push(`      | ${values.join(' | ')} |`);
               
-              exampleData = `\n\nCRITICAL - You MUST use this EXACT WORKING test data in the data table (known to work with the API):
+              exampleData = `\n\n🚨🚨🚨 CRITICAL - MANDATORY TEST DATA - DEFAULT TO TRUE 🚨🚨🚨
+YOU MUST USE THIS EXACT WORKING TEST DATA. THIS IS NOT OPTIONAL - IT IS MANDATORY.
+DO NOT GENERATE YOUR OWN ADDRESSES. DO NOT MODIFY THESE VALUES. DO NOT USE ANY OTHER ADDRESSES.
+
+REQUIRED DATA TABLE (copy EXACTLY - character for character):
 ${dataTableRows.join('\n')}
 
-DO NOT use generic addresses like "123 Main St", "123 Elm St", "1600 Pennsylvania Ave NW", or "Washington DC" - these cause 400/500 errors.
-You MUST use the working test data provided above. Copy it EXACTLY as shown.`;
+ABSOLUTELY FORBIDDEN - DO NOT USE:
+- "123 Main St", "123 Elm St", "123 Palm Tree Rd", "456 Disney Ln", "1600 Amphitheatre Pkwy" (unless it's the exact one above)
+- "Miami", "Orlando", "Washington DC", "Mountain View" (unless it's the exact one above)
+- ANY addresses NOT listed in the REQUIRED DATA TABLE above
+
+YOU MUST USE ONLY AND EXACTLY THE WORKING TEST DATA PROVIDED ABOVE.
+IF YOU USE ANY OTHER ADDRESS, THE TEST WILL FAIL.
+THIS IS THE DEFAULT BEHAVIOR - ALWAYS USE WORKING TEST DATA FROM RULES.`;
             }
           }
         }
@@ -304,34 +332,14 @@ CRITICAL REQUIREMENTS:
    - Example: "Given the API endpoint for ${scenarioName} test is {string}" instead of "Given the API endpoint is {string}"
    - Example: "When I send a POST request for ${scenarioName}" instead of "When I send a POST request"
    - Use "${scenarioName}" in step text to make it unique
-3. CRITICAL: Always include colon (:) after 'is' when using data tables
-   - CORRECT: "And the request body for ${scenarioName} is:"
-   - WRONG: "And the request body for ${scenarioName} is"
-4. For AVS API, use endpoint path only (NOT the full URL, just the path)
-   - CORRECT: Given the API endpoint for ${scenarioName} test is "${scenario.endpoint}"
-   - WRONG: Given the API endpoint for ${scenarioName} test is "https://avs.scff.stg.chewy.com${scenario.endpoint}"
-5. Use clear, business-readable language
-6. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
-7. For address data in data tables, streets should be a single string value (will be converted to array in step definition)
-8. CRITICAL - Use the EXACT working test data provided above - copy it EXACTLY as shown
-   - DO NOT modify the addresses (e.g., don't change "Mountain View" to "Washington" or "1600 Amphitheatre Parkway" to "1600 Pennsylvania Ave NW")
-   - DO NOT use generic addresses - they cause API errors
-   - The working test data is proven to work with the API
-9. CRITICAL - Data table format: ALWAYS use column headers as field names for request bodies
-   - CORRECT format: | streets | city | stateOrProvince | country |
-   - WRONG format: | field | value | (this is ONLY for 2-column key-value pairs, NOT for request bodies)
-   - For request bodies with multiple fields, each field must be a column header
-   - Example CORRECT data table:
-     | streets | city | stateOrProvince | postalCode | country |
-     | 1600 Amphitheatre Parkway | Mountain View | CA | 94043 | US |
-${teamRules?.featureFileGeneration?.criticalRules ? `\n9. Additional critical rules:\n${teamRules.featureFileGeneration.criticalRules.map((r: string) => `   - ${r}`).join('\n')}` : ''}
+3. Use clear, business-readable language
+4. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
+${teamRules?.featureFileGeneration?.dataTableFormat?.note ? `5. ${teamRules.featureFileGeneration.dataTableFormat.note}` : ''}
+${teamRules?.featureFileGeneration?.criticalRules ? `\n${teamRules.featureFileGeneration.criticalRules.map((r: string, idx: number) => `${idx + 6}. ${r}`).join('\n')}` : ''}
 
 IMPORTANT: The example data table above shows WORKING test data. You MUST use this exact data, not generic addresses.
 
-CRITICAL: 
-- Always use just the endpoint path (e.g., "${scenario.endpoint}"), never the full URL in feature files
-- Always include colon (:) after 'is' when using data tables
-- Use working test data provided above${rulesContext ? `\n\n${rulesContext}` : ''}`;
+${rulesContext ? `\n\n${rulesContext}` : ''}`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -350,6 +358,17 @@ CRITICAL:
       
       // Ensure feature files use path only, not full URL
       content = content.replace(/https:\/\/avs\.scff\.stg\.chewy\.com\/avs\/v1\.0\/verifyAddress/g, '/avs/v1.0/verifyAddress');
+      
+      // Validate and fix data table consistency (column count mismatches)
+      content = this.validateAndFixDataTablesInFeature(content);
+      
+      // Fix endpoint selection based on Swagger spec and scenario context
+      content = this.fixEndpointSelection(content, scenario, swaggerSpec);
+      
+      // ENFORCE: Always use working test data from rules (default to true)
+      if (teamRules?.testData?.workingAddresses) {
+        content = this.enforceWorkingTestData(content, scenario, teamRules);
+      }
       
       // Post-process: Replace ANY non-working addresses with working test data from rules
       if (teamRules?.testData?.workingAddresses) {
@@ -376,10 +395,43 @@ CRITICAL:
             const replacement = `| streets | city | stateOrProvince | postalCode | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingPostal} | ${workingCountry} |`;
             content = content.replace(dataTablePattern, replacement);
           } else if (scenario.endpoint.includes('suggest')) {
-            // For suggestAddresses, postalCode is optional
-            const dataTablePattern = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
-            const replacement = `| streets | city | stateOrProvince | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingCountry} |`;
-            content = content.replace(dataTablePattern, replacement);
+            // For suggestAddresses, try both patterns (with and without postalCode)
+            // Pattern 1: With postalCode
+            if (workingPostal) {
+              const dataTablePatternWithPostal = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*postalCode\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
+              const replacementWithPostal = `| streets | city | stateOrProvince | postalCode | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingPostal} | ${workingCountry} |`;
+              content = content.replace(dataTablePatternWithPostal, replacementWithPostal);
+            }
+            // Pattern 2: Without postalCode (for incomplete addresses)
+            const dataTablePatternNoPostal = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
+            const replacementNoPostal = `| streets | city | stateOrProvince | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingCountry} |`;
+            // Only replace if working data is not already present
+            if (!content.includes(workingStreet) || !content.includes(workingCity)) {
+              content = content.replace(dataTablePatternNoPostal, replacementNoPostal);
+            }
+          }
+          
+          // AGGRESSIVE FIX: Replace any address-like values that don't match working data
+          // This catches cases where OpenAI generated wrong addresses
+          const commonWrongAddresses = [
+            '123 Main St', '123 Elm St', '123 Palm Tree Rd', '456 Disney Ln',
+            'Miami', 'Orlando', 'Washington DC', 'Springfield',
+            '33101', '32801', '62704', '00000'
+          ];
+          
+          // Check if content has wrong addresses and replace them
+          const hasWrongAddress = commonWrongAddresses.some(addr => content.includes(addr));
+          if (hasWrongAddress && workingData) {
+            // Force replace the entire data table section
+            // Match any data table that contains address fields
+            const anyAddressTablePattern = /(\|\s*(?:streets|street)\s*\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|[\s\S]*?\|)/;
+            if (scenario.endpoint.includes('verify') && workingPostal) {
+              const correctTable = `| streets | city | stateOrProvince | postalCode | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingPostal} | ${workingCountry} |`;
+              content = content.replace(anyAddressTablePattern, correctTable);
+            } else if (scenario.endpoint.includes('suggest')) {
+              const correctTable = `| streets | city | stateOrProvince | country |\n      | ${workingStreet} | ${workingCity} | ${workingState} | ${workingCountry} |`;
+              content = content.replace(anyAddressTablePattern, correctTable);
+            }
           }
         }
       }
@@ -545,35 +597,47 @@ CRITICAL REQUIREMENTS:
 11. Include proper headers from team config${useOAuth ? ' and Authorization: Bearer token' : ''}
 12. ${teamRules?.assertionPatterns?.responseCodeProperty ? `Use '${teamRules.assertionPatterns.responseCodeProperty}' field for response codes (not 'status' or 'verificationStatus')` : 'Use appropriate response code field based on API structure'}
 13. DO NOT generate common steps like "the response status code should be {int}" - these are in common.steps.ts
-${teamRules?.responsePatterns?.arrayResponseEndpoints?.includes(scenario.endpoint) ? `14. CRITICAL: This endpoint (${scenario.endpoint}) returns an ARRAY directly, not an object with a property.\n   - Use: response.data (it's already an array)\n   - DO NOT use: response.data.suggestions or response.data.items\n   - Example: expect(response.data).to.be.an('array').that.is.not.empty;` : ''}
-${teamRules?.normalizationRules?.addressComparison === 'case-insensitive' ? `15. CRITICAL: Address comparisons must be CASE-INSENSITIVE.\n   - Use .toUpperCase() for both expected and actual values\n   - Example: expect(actual.toUpperCase()).to.equal(expected.toUpperCase());` : ''}
-${teamRules?.normalizationRules?.postalCodeHandling === 'prefix-match' ? `16. CRITICAL: Postal code handling - API may return ZIP+4 format.\n   - Check if response postal code includes/contains the request postal code\n   - Example: expect(responsePostalCode).to.include(requestPostalCode);` : ''}
-${teamRules?.queryParameterHandling?.[scenario.endpoint] ? `17. CRITICAL: This endpoint supports optional query parameters: ${teamRules.queryParameterHandling[scenario.endpoint].parameters?.join(', ')}\n   - These are OPTIONAL - only include them if explicitly needed in the test scenario\n   - DO NOT add query parameters with placeholder values like "default" - they may cause 400 errors\n   - Only add params if the test scenario specifically requires them\n   - Example: axios.post(url, body, { params: { maxSuggestions: 5 } }) - only if maxSuggestions is needed` : ''}
-${useOAuth ? `14. IMPORTANT: Include Authorization header with Bearer token in all requests. Use process.env.${oauthTokenEnvVar} to get the token.` : ''}
-15. CRITICAL - Quoted Strings in Feature Files: When the feature file has quoted strings like "Content-Type" or "application/json", Cucumber treats them as parameters. 
+${teamRules?.responsePatterns?.arrayResponseEndpoints?.includes(scenario.endpoint) ? `14. CRITICAL: This endpoint (${scenario.endpoint}) returns an ARRAY directly, not an object with a property.\n   - Use: response.data (it's already an array)\n   - DO NOT use: response.data.suggestions or response.data.items\n   - Example: expect(response.data).to.be.an('array').that.is.not.empty;\n   - For empty array checks: expect(response.data).to.be.an('array').that.is.empty;\n   - For array item checks: response.data.map((item: any) => item.responseCode)` : ''}
+${teamRules?.responsePatterns?.objectResponseEndpoints?.includes(scenario.endpoint) ? `15. CRITICAL: This endpoint (${scenario.endpoint}) returns an OBJECT, not an array.\n   - Use: response.data.responseCode (not response.data[0].responseCode)\n   - Example: expect(response.data).to.have.property('responseCode');\n   - Example: expect(response.data.responseCode).to.equal(expectedCode);` : ''}
+${teamRules?.normalizationRules?.addressComparison === 'case-insensitive' ? `16. CRITICAL: Address comparisons must be CASE-INSENSITIVE.\n   - Use .toUpperCase() for both expected and actual values\n   - Example: expect(actual.toUpperCase()).to.equal(expected.toUpperCase());` : ''}
+${teamRules?.normalizationRules?.postalCodeHandling === 'prefix-match' ? `17. CRITICAL: Postal code handling - API may return ZIP+4 format.\n   - Check if response postal code includes/contains the request postal code\n   - Example: expect(responsePostalCode).to.include(requestPostalCode);` : ''}
+${teamRules?.queryParameterHandling?.[scenario.endpoint] ? `18. CRITICAL: This endpoint supports optional query parameters: ${teamRules.queryParameterHandling[scenario.endpoint].parameters?.join(', ')}\n   - These are OPTIONAL - only include them if explicitly needed in the test scenario\n   - DO NOT add query parameters with placeholder values like "default" - they may cause 400 errors\n   - Only add params if the test scenario specifically requires them\n   - Example: axios.post(url, body, { params: { maxSuggestions: 5 } }) - only if maxSuggestions is needed` : ''}
+${useOAuth ? `19. IMPORTANT: Include Authorization header with Bearer token in all requests. Use process.env.${oauthTokenEnvVar} to get the token.` : ''}
+${teamRules?.stepDefinitionPatterns?.quotedStringHandling?.convertToPlaceholders !== false ? `20. CRITICAL - Quoted Strings in Feature Files: When the feature file has quoted strings like "Content-Type" or "application/json", Cucumber treats them as parameters. 
    - Step definitions MUST use {string} placeholders instead of literal quoted text
    - Example: Feature has 'the response header "Content-Type" should be "application/json"'
    - Step def should be: Then('the response header {string} should be {string} for [scenario-name]', function (this: CustomWorld, headerName: string, expectedValue: string) { ... })
    - DO NOT use: Then('the response header "Content-Type" should be "application/json" for [scenario-name]', ...)
-17. CRITICAL - Request Body Parsing: For data tables with multiple columns, ALWAYS use dataTable.hashes() and extract the first row: const rows = dataTable.hashes(); const data = rows[0];
-18. CRITICAL - Request Body Structure: Build a simple object with only the fields from the data table. DO NOT use rowsHash() for multi-column tables.
-19. CRITICAL - Response Assertions: Match the actual response type. If the API returns an integer (user ID), assert it's a number, not an object with properties.
+${teamRules?.stepDefinitionPatterns?.quotedStringHandling?.example ? `   - Team-specific example:\n${teamRules.stepDefinitionPatterns.quotedStringHandling.example}` : ''}` : ''}
+21. CRITICAL - Request Body Structure: Build a simple object with only the fields from the data table.
+22. CRITICAL - Response Assertions: Match the actual response type. If the API returns an integer (user ID), assert it's a number, not an object with properties.
+23. CRITICAL - Generate ALL step definitions: You MUST generate step definitions for EVERY step in the feature file. Parse the feature file and ensure every Given/When/Then/And/But step has a corresponding step definition.
+24. CRITICAL - Data Table Consistency: Data tables MUST have consistent column counts. Header row column count must match all data rows. If data row has more columns than header, truncate extra columns.
 
-Example for multi-column data table (ALWAYS use hashes() for tables with more than 2 columns):
-Given('the request body for [scenario-name] is:', function (this: CustomWorld, dataTable) {
-  const rows = dataTable.hashes(); // ALWAYS use hashes() for multi-column tables
-  const data = rows[0]; // Extract first row
-  this.requestBody = {
-    firstName: data.firstName,
-    lastName: data.lastName,
-    fullName: data.fullName,
-    registerType: data.registerType
-  };
-  // Handle optional fields like id (convert to number if present)
-  if (data.id) {
-    this.requestBody.id = parseInt(data.id);
-  }
-});
+CRITICAL - Step Definition Matching: 
+- In Cucumber, "And" steps match the previous step type (Given/When/Then)
+- If feature file has "And the request body...", it will match a "Given" step definition (because previous step is "Given")
+- Step definitions should use "Given" for request body steps, even if feature file uses "And"
+- The step text must match EXACTLY what's in the feature file (including "the request body" not "request body is prepared")
+
+${teamRules?.stepDefinitionPatterns?.dataTableParsing ? `
+CRITICAL - Data Table Parsing (from team rules):
+- Use rowsHash() for tables with ${teamRules.stepDefinitionPatterns.dataTableParsing.useRowsHashForColumns || 2} columns (key-value pairs)
+- Use hashes() for tables with ${teamRules.stepDefinitionPatterns.dataTableParsing.useHashesForColumns || 3}+ columns (multi-column tables)
+${teamRules.stepDefinitionPatterns.dataTableParsing.example?.twoColumn ? `\nExample for 2-column data table:\n${teamRules.stepDefinitionPatterns.dataTableParsing.example.twoColumn}` : ''}
+${teamRules.stepDefinitionPatterns.dataTableParsing.example?.multiColumn ? `\nExample for multi-column data table:\n${teamRules.stepDefinitionPatterns.dataTableParsing.example.multiColumn}` : ''}
+` : `
+CRITICAL - Data Table Parsing:
+- Use rowsHash() for 2-column tables (key-value pairs)
+- Use hashes() for 3+ column tables (multi-column tables)
+`}
+
+${teamRules?.stepDefinitionPatterns?.arrayAccessPatterns ? `
+CRITICAL - Array Access Patterns (from team rules):
+${teamRules.stepDefinitionPatterns.arrayAccessPatterns.inArrayPattern ? `- Pattern: ${teamRules.stepDefinitionPatterns.arrayAccessPatterns.inArrayPattern}` : ''}
+${teamRules.stepDefinitionPatterns.arrayAccessPatterns.example?.inArray ? `\nExample for array access with 'in' pattern:\n${teamRules.stepDefinitionPatterns.arrayAccessPatterns.example.inArray}` : ''}
+${teamRules.stepDefinitionPatterns.arrayAccessPatterns.example?.simple ? `\nExample for simple array access:\n${teamRules.stepDefinitionPatterns.arrayAccessPatterns.example.simple}` : ''}
+` : ''}
 
 Example for error handling in When steps (CRITICAL - must handle errors correctly):
 When('I send a POST request for [scenario-name]', async function (this: CustomWorld) {
@@ -595,13 +659,22 @@ ${useOAuth ? `Example for setting up headers with OAuth token and default header
 Given('the API endpoint for [scenario-name] test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = '${baseUrl}';
   this.endpoint = endpoint;
+  const oauthToken = process.env.${oauthTokenEnvVar};
+  if (!oauthToken) {
+    console.warn('Warning: ${oauthTokenEnvVar} environment variable is not set. API requests may fail with 401 Unauthorized.');
+  }
   this.headers = {
 ${headersCode}
-    'Authorization': \`Bearer \${process.env.${oauthTokenEnvVar}}\`
+    ...(oauthToken && { 'Authorization': \`Bearer \${oauthToken}\` })
   };
 });
 
-IMPORTANT: Always include the Authorization header with Bearer token when setting up headers in the endpoint step definition. Use process.env.${oauthTokenEnvVar} to get the token. Include all default headers from team config.` : `Example for setting up headers with default headers:
+IMPORTANT: 
+- Always include the Authorization header with Bearer token when setting up headers in the endpoint step definition. 
+- Use process.env.${oauthTokenEnvVar} to get the token.
+- Add validation to warn if token is missing (but still allow test to run).
+- Use conditional spread operator to only add Authorization header if token exists.
+- Include all default headers from team config.` : `Example for setting up headers with default headers:
 Given('the API endpoint for [scenario-name] test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = '${baseUrl}';
   this.endpoint = endpoint;
@@ -632,9 +705,14 @@ interface CustomWorld extends World {
 DO NOT import CustomWorld from external files - define it in each step definition file.
 
 Example for response status code validation (ALWAYS include this for every scenario):
-Then('the response status code should be {int} for [scenario-name] test', function (this: CustomWorld, expectedStatusCode: number) {
+Then('the response status code should be {int} for [scenario-name]', function (this: CustomWorld, expectedStatusCode: number) {
   expect(this.response?.status).to.equal(expectedStatusCode);
 });
+
+CRITICAL: The step definition text MUST match EXACTLY what's in the feature file. If the feature file says:
+- "Then the response status code should be 200 for create-non-b2b-user-with-valid-data" -> use that EXACT text
+- "Then the response status for create-non-b2b-user-with-unsupported-registertype should be 422" -> use that EXACT text
+- DO NOT change "status code" to "status" or vice versa - match the feature file exactly
 
 Example for integer response (when API returns just a number like user ID):
 Then('the response should contain a valid id for [scenario-name]', function (this: CustomWorld) {
@@ -676,6 +754,17 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       
       // COMPREHENSIVE FIX: Apply all fixes in correct order
       content = this.applyAllFixes(content, cucumberFeature, defaultHeaders, useOAuth, oauthTokenEnvVar, baseUrl);
+      
+      // Validate that all steps from feature file are generated
+      content = this.ensureAllStepsGenerated(content, cucumberFeature, scenarioName);
+      
+      // Fix response structure handling based on team rules
+      if (teamRules) {
+        content = this.fixResponseStructureHandling(content, scenario.endpoint, teamRules);
+      }
+      
+      // Validate and fix data table consistency in feature files
+      // Note: Data table validation is done in feature file generation, not step definitions
       
       // Ensure dotenv is imported and configured
       if (!content.includes("import * as dotenv from 'dotenv'")) {
@@ -737,9 +826,14 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
         });
       }
       
-      // Fix data table parsing - replace rowsHash() with hashes() for multi-column tables
-      // This is a heuristic - if we see rowsHash() being used, it's likely wrong for multi-column tables
-      content = content.replace(/dataTable\.rowsHash\(\)/g, 'dataTable.hashes()');
+      // Fix data table parsing - only replace rowsHash() with hashes() for multi-column tables
+      // DO NOT replace if it's a 2-column table (key-value pairs)
+      // Check if feature file has a 2-column table pattern first
+      const hasTwoColumnTable = cucumberFeature.match(/\|\s*\w+\s*\|\s*[^|]+\s*\|/);
+      if (!hasTwoColumnTable) {
+        // Only replace if it's NOT a 2-column table
+        content = content.replace(/dataTable\.rowsHash\(\)/g, 'dataTable.hashes()');
+      }
       
       // Fix request body parsing - ensure we extract first row from hashes() with null check
       content = content.replace(
@@ -1014,6 +1108,44 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       'this.requestBody = {$1};\n  } else {'
     );
     
+    // Fix single-row 2-column data tables - should use rowsHash() instead of hashes()
+    // Pattern: data table with exactly 2 columns like | registerType | R |
+    // Check if feature file has a 2-column table pattern
+    const twoColumnTablePattern = /\|\s*\w+\s*\|\s*[^|]+\s*\|/;
+    if (twoColumnTablePattern.test(cucumberFeature)) {
+      // Find step definitions that use hashes() for what looks like a 2-column table
+      // Look for patterns where we extract a single property from data (suggests 2-column table)
+      content = content.replace(
+        /const\s+rows\s*=\s*dataTable\.hashes\(\);\s*\n\s*const\s+(\w+)\s*=\s*rows\[0\];\s*\n\s*this\.requestBody\s*=\s*\{\s*(\w+):\s*\1\.(\w+)\s*\};/g,
+        (match, varName, propName, propValue) => {
+          // If only one property is being extracted, it's likely a 2-column table
+          // Check if the feature file has exactly 2 columns in the table
+          const tableMatch = cucumberFeature.match(/\|\s*(\w+)\s*\|\s*([^|]+)\s*\|/);
+          if (tableMatch && tableMatch.length === 3) {
+            // This is a 2-column table, use rowsHash()
+            return `const ${varName} = dataTable.rowsHash();\n  this.requestBody = {\n    ${propName}: ${varName}.${propValue}\n  };`;
+          }
+          return match;
+        }
+      );
+      
+      // More aggressive fix: if we see hashes() used but the requestBody only has one property,
+      // and the feature file has a 2-column table, convert to rowsHash()
+      const hasTwoColumnTable = cucumberFeature.match(/\|\s*\w+\s*\|\s*[^|]+\s*\|/);
+      if (hasTwoColumnTable) {
+        content = content.replace(
+          /(Given\([^)]*request\s+body[^)]*\)[^}]*\{[^}]*const\s+rows\s*=\s*dataTable\.hashes\(\);\s*\n\s*const\s+\w+\s*=\s*rows\[0\];\s*\n\s*this\.requestBody\s*=\s*\{\s*\w+:\s*\w+\.\w+\s*\};)/g,
+          (match) => {
+            // Replace hashes() with rowsHash() for 2-column tables
+            return match.replace(
+              /const\s+rows\s*=\s*dataTable\.hashes\(\);\s*\n\s*const\s+(\w+)\s*=\s*rows\[0\];/,
+              'const $1 = dataTable.rowsHash();'
+            );
+          }
+        );
+      }
+    }
+    
     // For positive tests, simplify - remove unnecessary if/else when data table has data
     const isNegativeTest = cucumberFeature.includes('without') || cucumberFeature.includes('missing') || cucumberFeature.includes('invalid');
     if (!isNegativeTest) {
@@ -1205,14 +1337,17 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
           content = content.replace(literalValuePattern, (match) => {
             // Determine which parameter this should be based on context
             let paramName: string;
-            if (quotedValue === 'responseCode' || quotedValue === 'VERIFIED') {
-              // For responseCode property checks, use expectedCode
+            // Check if this is a response code value (like "VERIFIED", "PREMISES_PARTIAL", etc.)
+            const responseCodeValues = ['VERIFIED', 'PREMISES_PARTIAL', 'STREET_PARTIAL', 'NOT_VERIFIED', 'CORRECTED'];
+            if (responseCodeValues.includes(quotedValue.toUpperCase()) || quotedValue === 'responseCode') {
+              // For responseCode property checks or response code values, use expectedCode
               paramName = quotedValue === 'responseCode' ? 'propertyName' : 'expectedCode';
             } else if (quotedValue.toLowerCase().includes('response') || quotedValue.toLowerCase().includes('code')) {
               paramName = 'expectedCode';
             } else if (quotedValue.toLowerCase().includes('property') || quotedValue.toLowerCase().includes('field')) {
               paramName = 'propertyName';
             } else {
+              // Use the parameter name from the stored list, or generate one
               paramName = storedParamNames[i] || `param${i + 1}`;
             }
             return match.replace(new RegExp(`['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'gi'), paramName);
@@ -1242,6 +1377,33 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
         return `expect(this.response?.headers[headerName.toLowerCase()] || this.response?.headers[headerName]).to.include(expectedValue)`;
       }
     );
+    
+    // POST-PROCESSING FIX: Catch cases where step definition has literal quotes but function body uses undefined variable
+    // Pattern: Step def has "VERIFIED" or other quoted strings, but function body uses expectedCode without parameter
+    const undefinedVarPattern = /(Then|And)\(['"]([^'"]*)(["']([^"']+)["'])([^'"]*)['"][^)]*\)\s*function\s*\(this:\s*CustomWorld\)\s*\{[^}]*expect\([^)]*\)\.to\.equal\((\w+)\)/g;
+    content = content.replace(undefinedVarPattern, (match, stepType, beforeQuote, quoteMatch, quotedValue, afterQuote, varName) => {
+      // If the step definition has a quoted string but function signature doesn't have parameters, fix it
+      // Check if varName is used but not in function signature (it would be undefined)
+      if (varName && !match.includes(`${varName}: string`)) {
+        // Replace quoted string with {string} placeholder and add parameter
+        const fixedStepText = beforeQuote + '{string}' + afterQuote;
+        let paramName = 'expectedCode';
+        const responseCodeValues = ['VERIFIED', 'PREMISES_PARTIAL', 'STREET_PARTIAL', 'NOT_VERIFIED', 'CORRECTED'];
+        if (responseCodeValues.includes(quotedValue.toUpperCase())) {
+          paramName = 'expectedCode';
+        } else if (quotedValue.toLowerCase().includes('property') || quotedValue.toLowerCase().includes('field')) {
+          paramName = 'propertyName';
+        } else if (quotedValue.toLowerCase().includes('header')) {
+          paramName = 'headerName';
+        }
+        
+        return match
+          .replace(new RegExp(`["']${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'g'), '{string}')
+          .replace('function (this: CustomWorld) {', `function (this: CustomWorld, ${paramName}: string) {`)
+          .replace(new RegExp(`\\b${varName}\\b`, 'g'), paramName);
+      }
+      return match;
+    });
     
     return content;
   }
@@ -1327,6 +1489,483 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       
       return match;
     });
+  }
+
+  /**
+   * Validate and fix data table consistency in feature files (for feature file generation)
+   */
+  private validateAndFixDataTablesInFeature(featureContent: string): string {
+    // Find all data tables
+    const lines = featureContent.split('\n');
+    const fixedLines: string[] = [];
+    let inDataTable = false;
+    let headerCols = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Check if this line is part of a data table
+      if (trimmed.includes('|') && (trimmed.startsWith('|') || line.match(/^\s+\|/))) {
+        const cols = (line.match(/\|/g) || []).length - 1;
+        
+        if (!inDataTable) {
+          // First line of table - this is the header
+          inDataTable = true;
+          headerCols = cols;
+          fixedLines.push(line);
+        } else {
+          // Data row - check column count
+          if (cols === headerCols) {
+            fixedLines.push(line);
+          } else if (cols > headerCols) {
+            // Too many columns - truncate
+            const cells = line.split('|').map(c => c.trim()).filter(c => c);
+            const fixedCells = cells.slice(0, headerCols);
+            const indent = line.match(/^\s*/)?.[0] || '';
+            fixedLines.push(`${indent}| ${fixedCells.join(' | ')} |`);
+          } else {
+            // Too few columns - keep as is (might be intentional)
+            fixedLines.push(line);
+          }
+        }
+      } else {
+        // Not a data table line
+        if (inDataTable) {
+          inDataTable = false;
+          headerCols = 0;
+        }
+        fixedLines.push(line);
+      }
+    }
+    
+    return fixedLines.join('\n');
+  }
+
+  /**
+   * Fix endpoint selection based on Swagger spec and scenario context
+   * If scenario is about "validate" but uses suggestAddresses, switch to verifyAddress
+   */
+  private fixEndpointSelection(content: string, scenario: TestScenario, swaggerSpec: any): string {
+    const scenarioNameLower = scenario.name.toLowerCase();
+    const contentLower = content.toLowerCase();
+    
+    // Check if this is a validation scenario
+    const isValidationScenario = scenarioNameLower.includes('validate') || 
+                                  scenarioNameLower.includes('verify') ||
+                                  scenarioNameLower.includes('residential') ||
+                                  (contentLower.includes('validate') && !contentLower.includes('suggest'));
+    
+    // Check current endpoint
+    const currentEndpoint = scenario.endpoint;
+    const isUsingSuggest = currentEndpoint.includes('suggest');
+    const isUsingVerify = currentEndpoint.includes('verify') && !currentEndpoint.includes('Bulk');
+    
+    // If validation scenario but using suggestAddresses, check if verifyAddress exists and switch
+    if (isValidationScenario && isUsingSuggest && swaggerSpec.paths) {
+      const verifyEndpoint = Object.keys(swaggerSpec.paths).find(path => 
+        path.includes('verify') && !path.includes('Bulk')
+      );
+      
+      if (verifyEndpoint) {
+        // Get Swagger summary to confirm it's for validation
+        const verifyOp = swaggerSpec.paths[verifyEndpoint]?.post || swaggerSpec.paths[verifyEndpoint]?.get;
+        const verifySummary = verifyOp?.summary || '';
+        
+        if (verifySummary.toLowerCase().includes('validate') || verifySummary.toLowerCase().includes('verify')) {
+          // Replace suggestAddresses with verifyAddress in the feature file
+          content = content.replace(
+            new RegExp(`"/avs/v1.0/suggestAddresses"`, 'g'),
+            `"${verifyEndpoint}"`
+          );
+          content = content.replace(
+            new RegExp(`/avs/v1.0/suggestAddresses`, 'g'),
+            verifyEndpoint
+          );
+          
+          // Also update the scenario endpoint for downstream processing
+          scenario.endpoint = verifyEndpoint;
+        }
+      }
+    }
+    
+    return content;
+  }
+
+  /**
+   * Enforce working test data from rules - replace any addresses with working addresses
+   * DEFAULT TO TRUE - Always use working test data from rules.json
+   */
+  private enforceWorkingTestData(content: string, scenario: TestScenario, teamRules: any): string {
+    if (!teamRules?.testData?.workingAddresses) {
+      return content;
+    }
+    
+    // Determine which working address to use based on scenario context FIRST, then endpoint
+    // DEFAULT TO TRUE: Always use working test data from rules.json
+    let workingData = null;
+    const scenarioNameLower = scenario.name.toLowerCase();
+    const contentLower = content.toLowerCase();
+    
+    // Check scenario name and content for hints about which endpoint/data to use
+    // Priority: Scenario context > Endpoint
+    const isResidentialAddress = scenarioNameLower.includes('residential') || 
+                                  scenarioNameLower.includes('verify') ||
+                                  contentLower.includes('residential') ||
+                                  contentLower.includes('600 harlan') ||
+                                  contentLower.includes('bonaire');
+    const isSuggestScenario = scenarioNameLower.includes('suggest') && 
+                              !scenarioNameLower.includes('residential') &&
+                              !scenarioNameLower.includes('verify');
+    
+    // PRIORITY 1: Scenario context (residential/verify) - use verifyAddress data
+    if (isResidentialAddress && teamRules.testData.workingAddresses.verifyAddress) {
+      // Residential/verify scenario - ALWAYS use verifyAddress data (DEFAULT TO TRUE)
+      workingData = teamRules.testData.workingAddresses.verifyAddress;
+    } 
+    // PRIORITY 2: Endpoint-based selection
+    else if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+      // verifyAddress endpoint - use verifyAddress data
+      workingData = teamRules.testData.workingAddresses.verifyAddress;
+    } else if (scenario.endpoint.includes('suggest') && !isResidentialAddress) {
+      // suggestAddresses endpoint - use suggestAddresses data (only if not residential scenario)
+      workingData = teamRules.testData.workingAddresses.suggestAddresses;
+    } 
+    // PRIORITY 3: Default fallback
+    else {
+      // Default to verifyAddress for residential, suggestAddresses otherwise
+      workingData = teamRules.testData.workingAddresses.verifyAddress || 
+                    teamRules.testData.workingAddresses.suggestAddresses;
+    }
+    
+    if (!workingData) {
+      return content;
+    }
+    
+    // Extract working address values
+    const workingStreet = Array.isArray(workingData.streets) ? workingData.streets[0] : workingData.streets;
+    const workingCity = workingData.city || '';
+    const workingState = workingData.stateOrProvince || '';
+    const workingPostal = workingData.postalCode || '';
+    const workingCountry = workingData.country || '';
+    
+    // Find data tables in the feature file and replace with working data
+    const lines = content.split('\n');
+    const fixedLines: string[] = [];
+    let inDataTable = false;
+    let tableStartIndex = -1;
+    let headerFields: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Check if this is a data table header
+      if (trimmed.includes('|') && (trimmed.startsWith('|') || line.match(/^\s+\|/))) {
+        const cells = trimmed.split('|').map(c => c.trim()).filter(c => c);
+        
+        if (!inDataTable && cells.length > 0 && (cells.includes('streets') || cells.includes('street'))) {
+          // This is the header row of an address data table
+          inDataTable = true;
+          tableStartIndex = i;
+          headerFields = cells;
+          fixedLines.push(line);
+        } else if (inDataTable) {
+          // This is a data row - ALWAYS replace it with working data (DEFAULT TO TRUE)
+          const indent = line.match(/^\s*/)?.[0] || '';
+          const dataRow: string[] = [];
+          
+          for (const field of headerFields) {
+            if (field.toLowerCase() === 'streets' || field.toLowerCase() === 'street') {
+              dataRow.push(workingStreet);
+            } else if (field.toLowerCase() === 'city') {
+              dataRow.push(workingCity);
+            } else if (field.toLowerCase() === 'stateorprovince' || field.toLowerCase() === 'state') {
+              dataRow.push(workingState);
+            } else if (field.toLowerCase() === 'postalcode' || field.toLowerCase() === 'postal' || field.toLowerCase() === 'zip') {
+              dataRow.push(workingPostal);
+            } else if (field.toLowerCase() === 'country') {
+              dataRow.push(workingCountry);
+            } else {
+              // Keep original value for other fields (like addressType, latitude, etc.)
+              const fieldIndex = headerFields.indexOf(field);
+              const originalCells = trimmed.split('|').map(c => c.trim()).filter(c => c);
+              dataRow.push(originalCells[fieldIndex] || '');
+            }
+          }
+          
+          fixedLines.push(`${indent}| ${dataRow.join(' | ')} |`);
+          inDataTable = false; // Reset after replacing data row
+        } else {
+          fixedLines.push(line);
+        }
+      } else {
+        // Not a data table line
+        if (inDataTable) {
+          inDataTable = false;
+        }
+        fixedLines.push(line);
+      }
+    }
+    
+    return fixedLines.join('\n');
+  }
+
+  /**
+   * Fix response structure handling based on team rules (array vs object responses)
+   */
+  private fixResponseStructureHandling(content: string, endpoint: string, teamRules: any): string {
+    const isArrayEndpoint = teamRules.responsePatterns?.arrayResponseEndpoints?.includes(endpoint);
+    const isObjectEndpoint = teamRules.responsePatterns?.objectResponseEndpoints?.includes(endpoint);
+    
+    if (isArrayEndpoint) {
+      // Fix assertions that expect array - ensure we're checking response.data
+      content = content.replace(
+        /const\s+responseData\s*=\s*this\.response\?\.[^;]+;\s*expect\(responseData\)\.to\.be\.an\(['"]array['"]\)/g,
+        (match) => {
+          // Ensure we're checking response.data, not responseData if it's wrong
+          if (!match.includes('this.response?.data')) {
+            return match.replace(/const\s+responseData\s*=\s*[^;]+;/, 'const responseData = this.response?.data;');
+          }
+          return match;
+        }
+      );
+    }
+    
+    return content;
+  }
+
+  /**
+   * Fix incorrect property paths - some properties are at top level, not nested
+   */
+  private fixIncorrectPropertyPaths(content: string, endpoint: string, teamRules: any): string {
+    // Properties that are commonly at top level but might be incorrectly accessed via requestAddress
+    const topLevelProperties = ['cityChanged', 'postalChanged', 'stateProvinceChanged', 'streetChanged', 'responseCode', 'engineResponseCode', 'shippableResponseCode'];
+    
+    // Fix patterns like response.data[0].requestAddress.cityChanged -> response.data[0].cityChanged
+    for (const prop of topLevelProperties) {
+      // Fix array access patterns
+      const arrayPattern = new RegExp(`this\\.response\\?\\.data\\[([^\\]]+)\\]\\?\\.requestAddress\\?\\.${prop}`, 'g');
+      content = content.replace(arrayPattern, `this.response?.data[$1]?.${prop}`);
+      
+      // Fix object access patterns (for object endpoints)
+      const objectPattern = new RegExp(`this\\.response\\?\\.data\\?\\.requestAddress\\?\\.${prop}`, 'g');
+      content = content.replace(objectPattern, `this.response?.data?.${prop}`);
+    }
+    
+    return content;
+  }
+
+  /**
+   * Ensure all steps from feature file have corresponding step definitions
+   */
+  private ensureAllStepsGenerated(content: string, cucumberFeature: string, scenarioName: string): string {
+    // Extract all steps from feature file
+    const stepPattern = /(?:Given|When|Then|And|But)\s+(.+)/gi;
+    const featureSteps: string[] = [];
+    let match;
+    
+    while ((match = stepPattern.exec(cucumberFeature)) !== null) {
+      if (match[1]) {
+        // Normalize step text - remove parameters like {int}, {string}, etc. for matching
+        const stepText = match[1].trim();
+        featureSteps.push(stepText);
+      }
+    }
+    
+    // Extract all step definitions from generated content
+    const stepDefPattern = /(?:Given|When|Then|And|But)\(['"]([^'"]+)['"]/g;
+    const generatedSteps: string[] = [];
+    
+    while ((match = stepDefPattern.exec(content)) !== null) {
+      if (match[1]) {
+        // Normalize step text for comparison
+        const stepText = match[1].trim();
+        generatedSteps.push(stepText);
+      }
+    }
+    
+    // Check for missing steps
+    const missingSteps: string[] = [];
+    for (const featureStep of featureSteps) {
+      // Normalize both for comparison - replace parameters and scenario name
+      const normalizedFeatureStep = featureStep
+        .replace(/\{int\}/g, '{int}')
+        .replace(/\{string\}/g, '{string}')
+        .replace(/\{float\}/g, '{float}')
+        .toLowerCase();
+      
+      // Check if any generated step matches (allowing for parameter variations)
+      const isFound = generatedSteps.some(genStep => {
+        const normalizedGenStep = genStep
+          .replace(/\{int\}/g, '{int}')
+          .replace(/\{string\}/g, '{string}')
+          .replace(/\{float\}/g, '{float}')
+          .toLowerCase();
+        
+        // Use flexible matching - check if the core step text matches
+        // Remove scenario name for comparison
+        const featureCore = normalizedFeatureStep.replace(new RegExp(scenarioName, 'gi'), '').trim();
+        const genCore = normalizedGenStep.replace(new RegExp(scenarioName, 'gi'), '').trim();
+        
+        // Check if they match (allowing for slight variations)
+        return featureCore === genCore || 
+               normalizedFeatureStep.includes(genCore) || 
+               normalizedGenStep.includes(featureCore);
+      });
+      
+      if (!isFound) {
+        missingSteps.push(featureStep);
+      }
+    }
+    
+    // If there are missing steps, try to generate them
+    if (missingSteps.length > 0) {
+      console.warn(`Warning: Missing step definitions for: ${missingSteps.join(', ')}`);
+      
+      // Try to generate missing step definitions based on common patterns
+      for (const missingStep of missingSteps) {
+        // Check if it's a status code assertion
+        const statusCodeMatch = missingStep.match(/response\s+status\s+code\s+should\s+be\s+(\d+)/i);
+        if (statusCodeMatch) {
+          const statusCode = statusCodeMatch[1];
+          const stepDef = `Then('${missingStep}', function (this: CustomWorld) {
+  expect(this.response?.status).to.equal(${statusCode});
+});`;
+          
+          // Add before the last closing brace or at the end
+          if (!content.includes(`'${missingStep}'`)) {
+            // Find a good place to insert (before the last closing brace)
+            const lastBraceIndex = content.lastIndexOf('}');
+            if (lastBraceIndex > 0) {
+              content = content.slice(0, lastBraceIndex) + '\n' + stepDef + '\n' + content.slice(lastBraceIndex);
+            } else {
+              content += '\n' + stepDef;
+            }
+          }
+        }
+        
+        // Check if it's a status assertion (without "code")
+        const statusMatch = missingStep.match(/response\s+status\s+should\s+be\s+(\d+)/i);
+        if (statusMatch && !statusCodeMatch) {
+          const statusCode = statusMatch[1];
+          const stepDef = `Then('${missingStep}', function (this: CustomWorld) {
+  expect(this.response?.status).to.equal(${statusCode});
+});`;
+          
+          if (!content.includes(`'${missingStep}'`)) {
+            const lastBraceIndex = content.lastIndexOf('}');
+            if (lastBraceIndex > 0) {
+              content = content.slice(0, lastBraceIndex) + '\n' + stepDef + '\n' + content.slice(lastBraceIndex);
+            } else {
+              content += '\n' + stepDef;
+            }
+          }
+        }
+        
+        // Check if it's an array access pattern like response[0].responseCode should be in [...]
+        const arrayAccessMatch = missingStep.match(/response\[(\d+)\]\.(\w+)\s+should\s+be\s+in\s+\[([^\]]+)\]/i);
+        if (arrayAccessMatch) {
+          const index = arrayAccessMatch[1];
+          const property = arrayAccessMatch[2];
+          const valuesStr = arrayAccessMatch[3];
+          // Parse values from array string like "PREMISES_PARTIAL", "STREET_PARTIAL", "CORRECTED"
+          // Handle both quoted and unquoted values, filter out empty strings
+          const values = valuesStr.split(',').map(v => {
+            const trimmed = v.trim();
+            // Remove quotes if present (both single and double)
+            return trimmed.replace(/^["']|["']$/g, '');
+          }).filter(v => v.length > 0);
+          
+          // Generate step definition with multiple {string} parameters
+          const params = values.map((_, i) => `code${i + 1}: string`).join(', ');
+          const paramNames = values.map((_, i) => `code${i + 1}`).join(', ');
+          const expectedValues = `[${paramNames}]`;
+          
+          const stepDef = `Then('the response[{int}].${property} should be in [${values.map((_, i) => '{string}').join(', ')}] for ${scenarioName}', function (this: CustomWorld, index: number, ${params}) {
+  const ${property} = this.response?.data[index]?.${property};
+  const expectedValues = ${expectedValues};
+  expect(expectedValues).to.include(${property});
+});`;
+          
+          if (!content.includes(`response[${index}].${property}`)) {
+            const lastBraceIndex = content.lastIndexOf('}');
+            if (lastBraceIndex > 0) {
+              content = content.slice(0, lastBraceIndex) + '\n' + stepDef + '\n' + content.slice(lastBraceIndex);
+            } else {
+              content += '\n' + stepDef;
+            }
+          }
+        }
+        
+        // Check if it's a simple array access like response[0].postalChanged should be true
+        const simpleArrayAccessMatch = missingStep.match(/response\[(\d+)\]\.(\w+)\s+should\s+be\s+(\w+)/i);
+        if (simpleArrayAccessMatch && !arrayAccessMatch) {
+          const index = simpleArrayAccessMatch[1];
+          const property = simpleArrayAccessMatch[2];
+          const expectedValue = simpleArrayAccessMatch[3];
+          
+          const stepDef = `Then('the response[{int}].${property} should be ${expectedValue} for ${scenarioName}', function (this: CustomWorld, index: number) {
+  const ${property} = this.response?.data[index]?.${property};
+  expect(${property}).to.be.${expectedValue};
+});`;
+          
+          if (!content.includes(`response[${index}].${property}`)) {
+            const lastBraceIndex = content.lastIndexOf('}');
+            if (lastBraceIndex > 0) {
+              content = content.slice(0, lastBraceIndex) + '\n' + stepDef + '\n' + content.slice(lastBraceIndex);
+            } else {
+              content += '\n' + stepDef;
+            }
+          }
+        }
+      }
+    }
+    
+    return content;
+  }
+
+  /**
+   * Clean up old generated files for a specific service
+   */
+  cleanupOldFiles(service?: string): void {
+    try {
+      // Clean up feature files
+      let featuresDir = path.join(process.cwd(), 'features', 'api');
+      if (service) {
+        featuresDir = path.join(featuresDir, service);
+      }
+      
+      if (fs.existsSync(featuresDir)) {
+        const files = fs.readdirSync(featuresDir, { recursive: true });
+        for (const file of files) {
+          if (typeof file === 'string' && file.endsWith('.feature')) {
+            const filePath = path.join(featuresDir, file);
+            fs.unlinkSync(filePath);
+            console.log(`   🗑️  Removed: ${filePath}`);
+          }
+        }
+      }
+
+      // Clean up step definition files
+      let stepsDir = path.join(process.cwd(), 'src', 'steps', 'api');
+      if (service) {
+        stepsDir = path.join(stepsDir, service);
+      }
+      
+      if (fs.existsSync(stepsDir)) {
+        const files = fs.readdirSync(stepsDir);
+        for (const file of files) {
+          if (file.endsWith('.steps.ts')) {
+            const filePath = path.join(stepsDir, file);
+            fs.unlinkSync(filePath);
+            console.log(`   🗑️  Removed: ${filePath}`);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.warn(`Warning: Could not clean up old files: ${error.message}`);
+    }
   }
 
   /**

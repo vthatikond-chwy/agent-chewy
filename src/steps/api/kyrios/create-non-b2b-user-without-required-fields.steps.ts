@@ -17,16 +17,20 @@ interface CustomWorld extends World {
 Given('the API endpoint for create-non-b2b-user-without-required-fields test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://kyriosb.csbb.stg.aws.chewy.cloud';
   this.endpoint = endpoint;
+  const oauthToken = process.env.OAUTH_TOKEN;
+  if (!oauthToken) {
+    console.warn('Warning: OAUTH_TOKEN environment variable is not set. API requests may fail with 401 Unauthorized.');
+  }
   this.headers = {
     'Content-Type': 'application/json',
     'x-submitter-id': '10',
-    'Authorization': `Bearer ${process.env.OAUTH_TOKEN}`
+    ...(oauthToken && { 'Authorization': `Bearer ${oauthToken}` })
   };
 });
 
 Given('the request body for create-non-b2b-user-without-required-fields is:', function (this: CustomWorld, dataTable) {
-  const rows = dataTable.hashes();
-  const data = rows[0];
+  // Handle single-row key-value table format: | registerType | R |
+  const data = dataTable.rowsHash();
   this.requestBody = {
     registerType: data.registerType
   };

@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-valid-us-address test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for suggest-addresses-on-invalid-input test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,25 +22,21 @@ Given('the API endpoint for verify-valid-us-address test is {string}', function 
   };
 });
 
-Given('the request headers for verify-valid-us-address include:', function (this: CustomWorld, dataTable) {
-  const rows = dataTable.hashes();
-  const headerRow = rows[0];
-  this.headers = { ...this.headers, ...headerRow };
-});
-
-Given('the request body for verify-valid-us-address is:', function (this: CustomWorld, dataTable) {
+Given('the request body for suggest-addresses-on-invalid-input is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
     streets: [data.streets],
     city: data.city,
     stateOrProvince: data.stateOrProvince,
-    postalCode: data.postalCode,
     country: data.country,
+    addressType: data.addressType,
+    engine: data.engine,
+    maxSuggestions: parseInt(data.maxSuggestions, 10),
   };
 });
 
-When('I send a POST request for verify-valid-us-address', async function (this: CustomWorld) {
+When('I send a POST request for suggest-addresses-on-invalid-input', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
@@ -53,12 +49,17 @@ When('I send a POST request for verify-valid-us-address', async function (this: 
   }
 });
 
-Then('the response status for verify-valid-us-address should be 200', function (this: CustomWorld) {
+Then('the response status for suggest-addresses-on-invalid-input should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-valid-us-address should be {string}', function (this: CustomWorld, expectedCode: string) {
-  const responseBody = this.response?.data;
-  expect(responseBody).to.have.property('responseCode');
-  expect(responseBody.responseCode).to.equal(expectedCode);
+Then('the response for suggest-addresses-on-invalid-input should contain at least 1 suggestion', function (this: CustomWorld) {
+  expect(this.response?.data).to.be.an('array').that.is.not.empty;
+});
+
+Then('the responseCode should not be VERIFIED for any suggestion in suggest-addresses-on-invalid-input', function (this: CustomWorld) {
+  const suggestions = this.response?.data;
+  suggestions.forEach((suggestion: any) => {
+    expect(suggestion.responseCode).to.not.equal('VERIFIED');
+  });
 });

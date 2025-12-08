@@ -113,14 +113,16 @@ apiCommand
 apiCommand
   .command('generate')
   .description('Generate API tests from natural language')
-  .requiredOption('-s, --swagger <path>', 'Path to Swagger/OpenAPI file')
-  .requiredOption('-i, --input <text>', 'Natural language test description')
+  .option('-s, --swagger <path>', 'Path to Swagger/OpenAPI file (defaults to AVS if not specified)')
+  .option('-i, --input <text>', 'Natural language test description')
+  .option('--interactive', 'Interactive mode - prompts for input')
   .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
   .option('-e, --endpoints <paths...>', 'Filter by specific endpoint paths')
   .option('-t, --tags <tags...>', 'Filter by Swagger tags')
   .action(async (options: {
-    swagger: string;
-    input: string;
+    swagger?: string;
+    input?: string;
+    interactive?: boolean;
     apiKey?: string;
     endpoints?: string[];
     tags?: string[];
@@ -128,18 +130,55 @@ apiCommand
     try {
       console.log('\n🚀 API Test Generator\n');
       
+      // Default to AVS if swagger not specified
+      const swaggerPath = options.swagger || 'swagger/teams/avs/avs-api.json';
+      
+      // Interactive mode - prompt for input
+      let input = options.input;
+      if (options.interactive || !input) {
+        const readline = await import('readline');
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        
+        const question = (query: string): Promise<string> => {
+          return new Promise((resolve) => {
+            rl.question(query, resolve);
+          });
+        };
+        
+        if (!input) {
+          console.log('💬 Interactive Mode\n');
+          input = await question('Enter your test description (e.g., "Generate 2 test scenarios for verifyAddress and suggestAddresses"): ');
+        }
+        
+        rl.close();
+      }
+      
+      if (!input) {
+        throw new Error('Test description is required. Use -i/--input or --interactive');
+      }
+      
       // Dynamic import to avoid loading issues
       const { SimpleTestGenerator } = await import('../agents/api-agent/index.js');
       
       const generator = new SimpleTestGenerator(options.apiKey);
       
       console.log('📖 Loading Swagger specification...');
-      const spec = await SwaggerParser.dereference(options.swagger) as any;
+      const spec = await SwaggerParser.dereference(swaggerPath) as any;
       console.log(`   API: ${spec.info.title} (v${spec.info.version})\n`);
+      
+      // Clean up old files before generating new ones
+      const projectName = swaggerPath ? generator.extractProjectName(swaggerPath) : null;
+      if (projectName) {
+        console.log('🧹 Cleaning up old generated files...');
+        generator.cleanupOldFiles(projectName);
+      }
       
       console.log('🤖 Generating test scenarios with OpenAI...');
       const scenarios = await generator.generateTestScenarios(
-        options.input,
+        input,
         spec,
         options.endpoints
       );
@@ -153,7 +192,7 @@ apiCommand
       console.log('📝 Generating Cucumber features and step definitions...\n');
       
       // Extract team name from swagger spec path - use this for any team
-      const teamName = extractProjectName(options.swagger);
+      const teamName = extractProjectName(swaggerPath);
       const service = teamName; // Always use team name from path, no fallback needed
 
       for (const scenario of scenarios) {
@@ -165,12 +204,12 @@ apiCommand
           console.log(`   🔨 ${scenario.name}`);
           
           // Generate Cucumber feature
-          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec, options.swagger);
+          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec, swaggerPath);
           const featurePath = generator.writeFeatureFile(scenario, cucumberFeature, service, category);
           generatedFiles.features.push(featurePath);
           
           // Generate step definitions
-          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec, options.swagger);
+          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec, swaggerPath);
           const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs, service);
           generatedFiles.steps.push(stepsPath);
           
@@ -231,6 +270,13 @@ apiCommand
       console.log('📖 Loading Swagger specification...');
       const spec = await SwaggerParser.dereference(options.swagger) as any;
 
+      // Clean up old files before generating new ones
+      const projectName = options.swagger ? generator.extractProjectName(options.swagger) : null;
+      if (projectName) {
+        console.log('🧹 Cleaning up old generated files...');
+        generator.cleanupOldFiles(projectName);
+      }
+      
       console.log('🤖 Generating test scenarios...');
       const scenarios = await generator.generateTestScenarios(
         naturalLanguageInput,
@@ -325,6 +371,13 @@ apiCommand
 
       const naturalLanguageInput = `Generate comprehensive test scenarios for all endpoints with tag "${options.tag}". Include positive, negative, boundary, and security test cases.`;
 
+      // Clean up old files before generating new ones
+      const projectName = options.swagger ? generator.extractProjectName(options.swagger) : null;
+      if (projectName) {
+        console.log('🧹 Cleaning up old generated files...');
+        generator.cleanupOldFiles(projectName);
+      }
+      
       console.log('🤖 Generating test scenarios...');
       const scenarios = await generator.generateTestScenarios(
         naturalLanguageInput,

@@ -17,10 +17,14 @@ interface CustomWorld extends World {
 Given('the API endpoint for create-non-b2b-user-with-valid-data test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://kyriosb.csbb.stg.aws.chewy.cloud';
   this.endpoint = endpoint;
+  const oauthToken = process.env.OAUTH_TOKEN;
+  if (!oauthToken) {
+    console.warn('Warning: OAUTH_TOKEN environment variable is not set. API requests may fail with 401 Unauthorized.');
+  }
   this.headers = {
     'Content-Type': 'application/json',
     'x-submitter-id': '10',
-    'Authorization': `Bearer ${process.env.OAUTH_TOKEN}`
+    ...(oauthToken && { 'Authorization': `Bearer ${oauthToken}` })
   };
 });
 
@@ -57,6 +61,10 @@ When('I send a POST request for create-non-b2b-user-with-valid-data', async func
       throw error;
     }
   }
+});
+
+Then('the response status code should be {int} for create-non-b2b-user-with-valid-data', function (this: CustomWorld, expectedStatusCode: number) {
+  expect(this.response?.status).to.equal(expectedStatusCode);
 });
 
 Then('the response should include a valid user ID for create-non-b2b-user-with-valid-data', function (this: CustomWorld) {

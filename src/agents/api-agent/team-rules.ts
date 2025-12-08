@@ -66,6 +66,72 @@ export interface TeamRules {
     errorProperty?: string; // Property name for error message (e.g., "message", "error")
     errorCodeProperty?: string; // Property name for error code
   };
+  
+  // Test Data
+  testData?: {
+    workingAddresses?: {
+      [endpoint: string]: {
+        streets?: string[];
+        city?: string;
+        stateOrProvince?: string;
+        postalCode?: string;
+        country?: string;
+      };
+    };
+    requiredFields?: {
+      [endpoint: string]: string[];
+    };
+    optionalFields?: {
+      [endpoint: string]: string[];
+    };
+  };
+  
+  // Step Definition Generation Patterns
+  stepDefinitionPatterns?: {
+    // Data table parsing patterns
+    dataTableParsing?: {
+      // When to use rowsHash() vs hashes()
+      useRowsHashForColumns?: number; // Use rowsHash() for tables with this many columns (default: 2)
+      useHashesForColumns?: number; // Use hashes() for tables with this many or more columns (default: 3)
+      example?: {
+        twoColumn?: string; // Example code for 2-column tables
+        multiColumn?: string; // Example code for multi-column tables
+      };
+    };
+    // Array access patterns for step definitions
+    arrayAccessPatterns?: {
+      // Pattern for array access with 'in' operator
+      inArrayPattern?: string; // Example: "response[{int}].{property} should be in [{string}, {string}]"
+      // Pattern for simple array access
+      simpleArrayPattern?: string; // Example: "response[{int}].{property} should be {value}"
+      example?: {
+        inArray?: string; // Example step definition code
+        simple?: string; // Example step definition code
+      };
+    };
+    // Quoted string handling
+    quotedStringHandling?: {
+      // Whether to convert quoted strings to {string} placeholders
+      convertToPlaceholders?: boolean; // Default: true
+      example?: string; // Example of correct handling
+    };
+  };
+  
+  // Feature File Generation Rules
+  featureFileGeneration?: {
+    stepTextPatterns?: {
+      endpointStep?: string;
+      requestBodyStep?: string;
+      actionStep?: string;
+      statusStep?: string;
+      responseCodeStep?: string;
+    };
+    dataTableFormat?: {
+      addressFields?: string[];
+      note?: string;
+    };
+    criticalRules?: string[];
+  };
 }
 
 /**
@@ -195,6 +261,78 @@ export function getRulesContext(rules: TeamRules | null): string {
       if (addr.compareFields?.length) {
         context.push(`  Compare these fields: ${addr.compareFields.join(', ')}`);
       }
+    }
+  }
+
+  if (rules.stepDefinitionPatterns) {
+    context.push('\n### Step Definition Generation Patterns:');
+    
+    if (rules.stepDefinitionPatterns.dataTableParsing) {
+      const dt = rules.stepDefinitionPatterns.dataTableParsing;
+      context.push('- Data Table Parsing:');
+      context.push(`  - Use rowsHash() for tables with ${dt.useRowsHashForColumns || 2} columns (key-value pairs)`);
+      context.push(`  - Use hashes() for tables with ${dt.useHashesForColumns || 3}+ columns (multi-column tables)`);
+      if (dt.example?.twoColumn) {
+        context.push(`  Example (2-column):\n${dt.example.twoColumn}`);
+      }
+      if (dt.example?.multiColumn) {
+        context.push(`  Example (multi-column):\n${dt.example.multiColumn}`);
+      }
+    }
+    
+    if (rules.stepDefinitionPatterns.arrayAccessPatterns) {
+      const aa = rules.stepDefinitionPatterns.arrayAccessPatterns;
+      context.push('- Array Access Patterns:');
+      if (aa.inArrayPattern) {
+        context.push(`  - Pattern: ${aa.inArrayPattern}`);
+      }
+      if (aa.simpleArrayPattern) {
+        context.push(`  - Simple pattern: ${aa.simpleArrayPattern}`);
+      }
+      if (aa.example?.inArray) {
+        context.push(`  Example (in array):\n${aa.example.inArray}`);
+      }
+      if (aa.example?.simple) {
+        context.push(`  Example (simple):\n${aa.example.simple}`);
+      }
+    }
+    
+    if (rules.stepDefinitionPatterns.quotedStringHandling) {
+      const qs = rules.stepDefinitionPatterns.quotedStringHandling;
+      context.push('- Quoted String Handling:');
+      context.push(`  - Convert quoted strings to {string} placeholders: ${qs.convertToPlaceholders !== false}`);
+      if (qs.example) {
+        context.push(`  Example:\n${qs.example}`);
+      }
+    }
+  }
+
+  if (rules.featureFileGeneration) {
+    context.push('\n### Feature File Generation Rules:');
+    if (rules.featureFileGeneration.stepTextPatterns) {
+      context.push('- Step Text Patterns:');
+      const patterns = rules.featureFileGeneration.stepTextPatterns;
+      if (patterns.endpointStep) context.push(`  - Endpoint: ${patterns.endpointStep}`);
+      if (patterns.requestBodyStep) context.push(`  - Request Body: ${patterns.requestBodyStep}`);
+      if (patterns.actionStep) context.push(`  - Action: ${patterns.actionStep}`);
+      if (patterns.statusStep) context.push(`  - Status: ${patterns.statusStep}`);
+      if (patterns.responseCodeStep) context.push(`  - Response Code: ${patterns.responseCodeStep}`);
+    }
+    if (rules.featureFileGeneration.dataTableFormat) {
+      context.push('- Data Table Format:');
+      const dtf = rules.featureFileGeneration.dataTableFormat;
+      if (dtf.addressFields?.length) {
+        context.push(`  - Address fields: ${dtf.addressFields.join(', ')}`);
+      }
+      if (dtf.note) {
+        context.push(`  - Note: ${dtf.note}`);
+      }
+    }
+    if (rules.featureFileGeneration.criticalRules?.length) {
+      context.push('- Critical Rules:');
+      rules.featureFileGeneration.criticalRules.forEach(rule => {
+        context.push(`  - ${rule}`);
+      });
     }
   }
 
