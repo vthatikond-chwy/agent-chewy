@@ -394,6 +394,11 @@ CRITICAL REQUIREMENTS:
 12. For AVS API responses, use 'responseCode' field (not 'verificationStatus')
 13. DO NOT generate common steps like "the response status code should be {int}" - these are in common.steps.ts
 ${useOAuth ? `14. IMPORTANT: Include Authorization header with Bearer token in all requests. Use process.env.${oauthTokenEnvVar} to get the token.` : ''}
+15. CRITICAL - Quoted Strings in Feature Files: When the feature file has quoted strings like "Content-Type" or "application/json", Cucumber treats them as parameters. 
+   - Step definitions MUST use {string} placeholders instead of literal quoted text
+   - Example: Feature has 'the response header "Content-Type" should be "application/json"'
+   - Step def should be: Then('the response header {string} should be {string} for [scenario-name]', function (this: CustomWorld, headerName: string, expectedValue: string) { ... })
+   - DO NOT use: Then('the response header "Content-Type" should be "application/json" for [scenario-name]', ...)
 17. CRITICAL - Request Body Parsing: For data tables with multiple columns, ALWAYS use dataTable.hashes() and extract the first row: const rows = dataTable.hashes(); const data = rows[0];
 18. CRITICAL - Request Body Structure: Build a simple object with only the fields from the data table. DO NOT use rowsHash() for multi-column tables.
 19. CRITICAL - Response Assertions: Match the actual response type. If the API returns an integer (user ID), assert it's a number, not an object with properties.
@@ -748,6 +753,18 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
 
   /**
    * Apply ALL fixes comprehensively in the correct order
+   * 
+   * IMPORTANT: Fix order matters! Each fix operates on different parts of the code:
+   * 1. Headers - fixes header object structure (must be first, before other fixes touch headers)
+   * 2. DataTable - adds dataTable parameters (doesn't conflict with others)
+   * 3. Quoted Strings - converts literal quotes to placeholders (operates on step definitions, not code body)
+   * 4. Request Body - fixes requestBody assignments (operates on code body, not step definitions)
+   * 5. Else Statements - removes duplicate else blocks (operates on code structure)
+   * 6. Final Headers - final validation pass (catches anything missed, doesn't override previous fixes)
+   * 
+   * These fixes are designed to be NON-OVERLAPPING - each operates on a different scope:
+   * - Step definitions (signatures) vs code body (implementation)
+   * - Headers object vs request body vs else statements
    */
   private applyAllFixes(
     content: string,
@@ -758,18 +775,31 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
     baseUrl: string
   ): string {
     // STEP 1: Fix headers FIRST (before anything else touches them)
+    // Scope: this.headers = { ... } assignments
     content = this.fixHeadersObject(content, defaultHeaders, useOAuth, oauthTokenEnvVar, baseUrl);
     
     // STEP 2: Fix dataTable parameters
+    // Scope: function signatures - adds dataTable parameter if missing
     content = this.fixDataTableParameters(content, cucumberFeature);
     
-    // STEP 3: Fix request body issues (duplicate assignments, overwrites)
+    // STEP 3: Fix quoted strings in step definitions - convert to placeholders
+    // Scope: step definition signatures and function bodies (assertions only)
+    // NOTE: This does NOT touch headers or requestBody assignments
+    content = this.fixQuotedStringPlaceholders(content, cucumberFeature);
+    
+    // STEP 4: Fix request body issues (duplicate assignments, overwrites)
+    // Scope: this.requestBody = { ... } assignments
+    // NOTE: This does NOT touch step definitions or headers
     content = this.fixRequestBodyIssues(content, cucumberFeature);
     
-    // STEP 4: Fix duplicate else statements
+    // STEP 5: Fix duplicate else statements
+    // Scope: code structure (if/else blocks)
+    // NOTE: This does NOT touch step definitions, headers, or requestBody
     content = this.removeDuplicateElseStatements(content);
     
-    // STEP 5: Final headers validation (rebuild if still malformed)
+    // STEP 6: Final headers validation (rebuild if still malformed)
+    // Scope: this.headers = { ... } assignments (only if still malformed)
+    // NOTE: This is a safety net - only fixes if headers are still broken after step 1
     content = this.finalHeadersFix(content, defaultHeaders, useOAuth, oauthTokenEnvVar);
     
     return content;
@@ -887,6 +917,118 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       }
       return match;
     });
+  }
+
+  /**
+   * Fix quoted strings in step definitions - convert literal quoted strings to placeholders
+   * Cucumber treats quoted strings in feature files as parameters, so step definitions must use {string} placeholders
+   */
+  private fixQuotedStringPlaceholders(content: string, cucumberFeature: string): string {
+    // Find all steps in feature file that contain quoted strings
+    // Pattern: "some text" or 'some text' in step definitions
+    const quotedStringPattern = /["']([^"']+)["']/g;
+    
+    // Extract all steps from feature file
+    const featureSteps = cucumberFeature.match(/(?:Given|When|Then|And|But)\s+(.+)/gi) || [];
+    
+    // For each step in feature file, check if it has quoted strings
+    for (const featureStep of featureSteps) {
+      const quotedStrings: string[] = [];
+      let match;
+      const stepText = featureStep.replace(/(?:Given|When|Then|And|But)\s+/i, '').trim();
+      
+      // Find all quoted strings in this step
+      while ((match = quotedStringPattern.exec(stepText)) !== null) {
+        quotedStrings.push(match[1]);
+      }
+      
+      // If step has quoted strings, find corresponding step definition and fix it
+      if (quotedStrings.length > 0) {
+        // Create a pattern to find the step definition
+        // Escape special regex characters in step text
+        const escapedStepText = stepText
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/["']([^"']+)["']/g, '["\']$1["\']'); // Match both single and double quotes
+        
+        // Find step definitions that match this pattern but have literal quotes instead of placeholders
+        const stepDefPattern = new RegExp(
+          `(Given|When|Then|And|But)\\(['"]${escapedStepText}['"][^)]*\\)\\s*function\\s*\\(this:\\s*CustomWorld\\)\\s*\\{`,
+          'gi'
+        );
+        
+        content = content.replace(stepDefPattern, (match, stepType) => {
+          // Replace quoted strings with {string} placeholders
+          let fixedStepText = stepText;
+          let paramCount = 0;
+          const paramNames: string[] = [];
+          
+          // Replace each quoted string with {string} placeholder
+          for (const quotedStr of quotedStrings) {
+            fixedStepText = fixedStepText.replace(
+              new RegExp(`["']${quotedStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'g'),
+              '{string}'
+            );
+            // Generate meaningful parameter names
+            const paramName = quotedStr.toLowerCase()
+              .replace(/[^a-z0-9]+/g, '')
+              .replace(/^(.)/, (m) => m.toLowerCase()) || `param${++paramCount}`;
+            paramNames.push(paramName);
+          }
+          
+          // Build new function signature with parameters
+          const params = paramNames.map((name, index) => `${name}${index}: string`).join(', ');
+          const paramUsage = paramNames.map((name, index) => name + index).join(', ');
+          
+          // Return fixed step definition
+          return `${stepType}('${fixedStepText}', function (this: CustomWorld, ${params}) {`;
+        });
+        
+        // Also fix the function body to use the parameters instead of hardcoded values
+        // This is a simplified fix - for complex cases, we rely on the pattern matching above
+        for (let i = 0; i < quotedStrings.length; i++) {
+          const quotedValue = quotedStrings[i];
+          if (!quotedValue) continue;
+          
+          // Find step definitions that reference this quoted value literally
+          const literalValuePattern = new RegExp(
+            `(expect\\([^)]*\\)\\.to\\.(equal|include)\\(['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\))`,
+            'gi'
+          );
+          
+          // Replace with parameter reference (simplified - assumes order matches)
+          // This is a heuristic and may need refinement
+          content = content.replace(literalValuePattern, (match) => {
+            // Try to determine which parameter this should be based on context
+            // For now, use a simple replacement strategy
+            return match.replace(new RegExp(`['"]${quotedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'gi'), `param${i}`);
+          });
+        }
+      }
+    }
+    
+    // More specific fix for common patterns like "Content-Type" header checks
+    // Pattern: the response header "Content-Type" should be "application/json"
+    const headerCheckPattern = /(Given|When|Then|And|But)\\(['"]the response header ['"]Content-Type['"] should be ['"]application\/json['"]([^)]*)\\)\\s*function\\s*\\(this:\\s*CustomWorld\\)\\s*\\{/gi;
+    
+    content = content.replace(headerCheckPattern, (match, stepType, suffix) => {
+      // Extract scenario name from suffix (e.g., " for successfully-create-a-non-b2b-user-with-registertype-r")
+      const scenarioMatch = suffix.match(/for\s+([a-z0-9-]+)/i);
+      const scenarioSuffix = scenarioMatch ? ` for ${scenarioMatch[1]}` : '';
+      
+      // Replace with placeholder version, preserving the actual scenario name
+      return `${stepType}('the response header {string} should be {string}${scenarioSuffix}', function (this: CustomWorld, headerName: string, expectedValue: string) {`;
+    });
+    
+    // Fix the function body for header checks
+    content = content.replace(
+      /expect\\(this\\.response\\?\\.[^)]*\\)\\.to\\.(equal|include)\\(['"]application\/json['"]\\)/gi,
+      (match) => {
+        // Replace with parameter-based check
+        return `expect(this.response?.headers[headerName.toLowerCase()] || this.response?.headers[headerName]).to.include(expectedValue)`;
+      }
+    );
+    
+    return content;
   }
 
   /**
