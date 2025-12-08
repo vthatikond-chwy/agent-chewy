@@ -152,11 +152,9 @@ apiCommand
       
       console.log('📝 Generating Cucumber features and step definitions...\n');
       
-      // Determine service from spec
-      const apiTitle = spec.info?.title || '';
-      // Extract team name from swagger spec path
+      // Extract team name from swagger spec path - use this for any team
       const teamName = extractProjectName(options.swagger);
-      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
+      const service = teamName; // Always use team name from path, no fallback needed
 
       for (const scenario of scenarios) {
         // Determine category from endpoint
@@ -245,7 +243,7 @@ apiCommand
       // Extract team name from swagger spec path
       const teamName = extractProjectName(options.swagger);
       const apiTitle = spec.info?.title || '';
-      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
+      const service = teamName; // Always use team name from path for any team
 
       const featureFiles: string[] = [];
       const stepFiles: string[] = [];
@@ -339,7 +337,7 @@ apiCommand
       // Extract team name from swagger spec path
       const teamName = extractProjectName(options.swagger);
       const apiTitle = spec.info?.title || '';
-      const service = teamName || (apiTitle.includes('AVS') ? 'avs' : undefined);
+      const service = teamName; // Always use team name from path for any team
 
       const featureFiles: string[] = [];
       const stepFiles: string[] = [];
