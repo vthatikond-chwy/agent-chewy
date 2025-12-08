@@ -11,7 +11,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse;
 }
 
-Given('the API endpoint for ensure-missing-required-fields-return-errors test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for missing-required-field-street test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -19,7 +19,7 @@ Given('the API endpoint for ensure-missing-required-fields-return-errors test is
   };
 });
 
-Given('the request body for ensure-missing-required-fields-return-errors does not include "streets" field', function (this: CustomWorld, dataTable) {
+Given('the request body for missing-required-field-street test without "streets" field is', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const addressData = rows[0];
   this.requestBody = {
@@ -27,11 +27,11 @@ Given('the request body for ensure-missing-required-fields-return-errors does no
     country: addressData.country,
     postalCode: addressData.postalCode,
     stateOrProvince: addressData.stateOrProvince,
-    // streets field is intentionally omitted to trigger the error
+    // streets field intentionally omitted
   };
 });
 
-When('I send a POST request for ensure-missing-required-fields-return-errors', async function (this: CustomWorld) {
+When('I send a POST request for missing-required-field-street', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
@@ -39,17 +39,17 @@ When('I send a POST request for ensure-missing-required-fields-return-errors', a
     if (axios.isAxiosError(error) && error.response) {
       this.response = error.response;
     } else {
-      throw error; // Rethrow if it's not an AxiosError with a response
+      throw error;
     }
   }
 });
 
-Then('the response status code should be 400 for ensure-missing-required-fields-return-errors', function (this: CustomWorld) {
+Then('the response status code should be 400 for missing-required-field-street test', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(400);
 });
 
-Then('the response contains error message about missing "streets" field for ensure-missing-required-fields-return-errors', function (this: CustomWorld) {
+Then('the response for missing-required-field-street test should contain an error message {string}', function (this: CustomWorld, expectedMessage: string) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('message');
-  expect(responseBody.message).to.include('streets');
+  expect(responseBody.message).to.include(expectedMessage);
 });

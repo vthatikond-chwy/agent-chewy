@@ -9,7 +9,8 @@
   "scripts": {
     "test": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
     "test:ui": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/ui/recording-*.feature --import 'features/steps/ui/recording-*.steps.ts' --format progress",
-    "test:api": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/**/*.feature --import 'src/steps/api/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
+    "test:api": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
+    "test:avs": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/avs/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
     "record": "npx tsx src/cli/index.ts ui record",
     "record:url": "npx tsx src/cli/index.ts ui record",
     "generate": "npx tsx src/cli/index.ts ui generate-from-recording",

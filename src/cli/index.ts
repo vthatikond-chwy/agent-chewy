@@ -128,7 +128,7 @@ apiCommand
       console.log('\n🚀 API Test Generator\n');
       
       // Dynamic import to avoid loading issues
-      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
+      const { SimpleTestGenerator } = await import('../agents/api-agent/index.js');
       
       const generator = new SimpleTestGenerator(options.apiKey);
       
@@ -151,18 +151,26 @@ apiCommand
       
       console.log('📝 Generating Cucumber features and step definitions...\n');
       
+      // Determine service from spec
+      const apiTitle = spec.info?.title || '';
+      const service = apiTitle.includes('AVS') ? 'avs' : undefined;
+
       for (const scenario of scenarios) {
+        // Determine category from endpoint
+        const category = scenario.endpoint.includes('verify') ? 'verification' : 
+                        scenario.endpoint.includes('suggest') ? 'suggestions' : 
+                        scenario.endpoint.includes('bulk') ? 'bulk' : undefined;
         try {
           console.log(`   🔨 ${scenario.name}`);
           
           // Generate Cucumber feature
           const cucumberFeature = await generator.generateCucumberFeature(scenario, spec);
-          const featurePath = generator.writeFeatureFile(scenario, cucumberFeature);
+          const featurePath = generator.writeFeatureFile(scenario, cucumberFeature, service, category);
           generatedFiles.features.push(featurePath);
           
           // Generate step definitions
           const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec);
-          const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs);
+          const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs, service);
           generatedFiles.steps.push(stepsPath);
           
           console.log(`      ✅ Feature: ${path.basename(featurePath)}`);
@@ -214,7 +222,7 @@ apiCommand
         throw new Error('OpenAI API key is required. Set OPENAI_API_KEY env var or use --api-key option');
       }
 
-      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
+      const { SimpleTestGenerator } = await import('../agents/api-agent/index.js');
       const generator = new SimpleTestGenerator(apiKey);
 
       const naturalLanguageInput = `Generate comprehensive test scenarios for ${options.method} ${options.path}. Include positive tests (valid requests), negative tests (invalid inputs, error conditions), boundary tests (edge cases), and security tests if applicable.`;
@@ -283,7 +291,7 @@ apiCommand
         throw new Error('OpenAI API key is required. Set OPENAI_API_KEY env var or use --api-key option');
       }
 
-      const { SimpleTestGenerator } = await import('../api-generator/simple-generator.js');
+      const { SimpleTestGenerator } = await import('../agents/api-agent/index.js');
       const generator = new SimpleTestGenerator(apiKey);
 
       console.log('📖 Loading Swagger specification...');
@@ -361,7 +369,7 @@ apiCommand
     try {
       console.log('\n🔧 Self-Healing API Tests\n');
       
-      const { SelfHealing } = await import('../api-generator/self-healing.js');
+      const { SelfHealing } = await import('../agents/api-agent/index.js');
       const healer = new SelfHealing();
       
       await healer.heal();
