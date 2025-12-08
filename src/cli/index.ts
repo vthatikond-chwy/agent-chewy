@@ -169,7 +169,7 @@ apiCommand
           generatedFiles.features.push(featurePath);
           
           // Generate step definitions
-          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec);
+          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec, options.swagger);
           const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs, service);
           generatedFiles.steps.push(stepsPath);
           
@@ -252,7 +252,7 @@ apiCommand
           const featurePath = generator.writeFeatureFile(scenario, featureContent);
           featureFiles.push(featurePath);
           
-          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec);
+          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec, options.swagger);
           const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
           stepFiles.push(stepPath);
           
@@ -341,7 +341,7 @@ apiCommand
           const featurePath = generator.writeFeatureFile(scenario, featureContent);
           featureFiles.push(featurePath);
           
-          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec);
+          const stepContent = await generator.generateStepDefinitions(featureContent, scenario, spec, options.swagger);
           const stepPath = generator.writeStepDefinitionFile(scenario, stepContent);
           stepFiles.push(stepPath);
           

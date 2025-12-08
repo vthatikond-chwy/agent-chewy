@@ -19,6 +19,10 @@ export interface ApiGeneratorConfig {
     featuresDir: string;
     stepsDir: string;
   };
+  auth: {
+    oauthToken?: string;
+    useProjectNameMatching: boolean;
+  };
 }
 
 export const defaultConfig: ApiGeneratorConfig = {
@@ -37,6 +41,10 @@ export const defaultConfig: ApiGeneratorConfig = {
   output: {
     featuresDir: './features/api',
     stepsDir: './src/steps/api'
+  },
+  auth: {
+    oauthToken: process.env.OAUTH_TOKEN,
+    useProjectNameMatching: process.env.USE_PROJECT_NAME_MATCHING === 'true'
   }
 };
 
@@ -48,6 +56,10 @@ export function loadConfig(): ApiGeneratorConfig {
       ...defaultConfig.openai,
       apiKey: process.env.OPENAI_API_KEY || defaultConfig.openai.apiKey,
       model: process.env.OPENAI_MODEL || defaultConfig.openai.model
+    },
+    auth: {
+      oauthToken: process.env.OAUTH_TOKEN || defaultConfig.auth.oauthToken,
+      useProjectNameMatching: process.env.USE_PROJECT_NAME_MATCHING === 'true' || defaultConfig.auth.useProjectNameMatching
     }
   };
 }

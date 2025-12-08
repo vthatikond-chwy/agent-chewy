@@ -1,0 +1,10 @@
+{
+  "baseUrl": "https://avs.scff.stg.chewy.com",
+  "environment": "stg",
+  "useOAuth": false,
+  "defaultHeaders": {
+    "Content-Type": "application/json"
+  },
+  "timeout": 30000
+}
+
