@@ -57,6 +57,14 @@ When('I send a POST request for create-non-b2b-user-with-valid-data', async func
   } catch (error) {
     if (axios.isAxiosError(error)) {
       this.response = error.response;
+      // Log 401 errors for debugging
+      if (error.response?.status === 401) {
+        console.error('❌ 401 Unauthorized Error:');
+        console.error('Request URL:', `${this.baseUrl}${this.endpoint}`);
+        console.error('Request Headers:', JSON.stringify(this.headers, null, 2));
+        console.error('Response:', JSON.stringify(error.response?.data, null, 2));
+        console.error('OAuth Token present:', !!this.headers?.Authorization);
+      }
     } else {
       throw error;
     }

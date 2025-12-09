@@ -13,6 +13,7 @@ import type { TeamConfig } from './team-config.js';
 import { analyzeSchema, getMinimalRequestBody, getResponseTypeDescription } from './schema-analyzer.js';
 import { findPatternForEndpoint, getMinimalRequestBodyFromPattern, getResponseTypeFromPattern, getResponseStructureFromPattern } from './self-healing.js';
 import { loadTeamRules, getRulesContext } from './team-rules.js';
+import { ResponseValidator } from './response-validator.js';
 
 dotenv.config();
 
@@ -401,10 +402,12 @@ CRITICAL REQUIREMENTS:
    - Example: "Given the API endpoint for ${scenarioName} test is {string}" instead of "Given the API endpoint is {string}"
    - Example: "When I send a POST request for ${scenarioName}" instead of "When I send a POST request"
    - Use "${scenarioName}" in step text to make it unique
+   - EXCEPTION: Schema validation step is common and should NOT include scenario suffix
 3. Use clear, business-readable language
 4. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
-${teamRules?.featureFileGeneration?.dataTableFormat?.note ? `5. ${teamRules.featureFileGeneration.dataTableFormat.note}` : ''}
-${teamRules?.featureFileGeneration?.criticalRules ? `\n${teamRules.featureFileGeneration.criticalRules.map((r: string, idx: number) => `${idx + 6}. ${r}`).join('\n')}` : ''}
+5. ALWAYS include schema validation step EXACTLY as: "And the response matches the expected schema" (NO scenario suffix) after the status code check
+${teamRules?.featureFileGeneration?.dataTableFormat?.note ? `6. ${teamRules.featureFileGeneration.dataTableFormat.note}` : ''}
+${teamRules?.featureFileGeneration?.criticalRules ? `\n${teamRules.featureFileGeneration.criticalRules.map((r: string, idx: number) => `${idx + 7}. ${r}`).join('\n')}` : ''}
 
 IMPORTANT: The example data table above shows WORKING test data. You MUST use this exact data, not generic addresses.
 
@@ -692,6 +695,7 @@ ${teamRules?.stepDefinitionPatterns?.quotedStringHandling?.example ? `   - Team-
 22. CRITICAL - Response Assertions: Match the actual response type. If the API returns an integer (user ID), assert it's a number, not an object with properties.
 23. CRITICAL - Generate ALL step definitions: You MUST generate step definitions for EVERY step in the feature file. Parse the feature file and ensure every Given/When/Then/And/But step has a corresponding step definition.
 24. CRITICAL - Data Table Consistency: Data tables MUST have consistent column counts. Header row column count must match all data rows. If data row has more columns than header, truncate extra columns.
+25. CRITICAL - Schema Validation: DO NOT generate step definitions for "the response matches the expected schema" - this is handled by common.steps.ts with Ajv schema validation against the Swagger spec.
 
 CRITICAL - Step Definition Matching: 
 - In Cucumber, "And" steps match the previous step type (Given/When/Then)

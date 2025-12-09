@@ -8,6 +8,60 @@ export interface SimplifiedSchema {
   flatStructure: boolean;
   responseType: 'object' | 'integer' | 'string' | 'array' | 'unknown';
   example: any;
+  fullSchema?: any; // Full resolved schema for validation
+}
+
+/**
+ * Resolve $ref references in schema recursively
+ */
+export function resolveSchemaRefs(schema: any, spec: any, visited: Set<string> = new Set()): any {
+  if (!schema) {
+    return schema;
+  }
+
+  // Handle $ref
+  if (schema.$ref) {
+    const refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
+
+    // Prevent circular references
+    if (visited.has(refPath)) {
+      return { type: 'object', description: 'Circular reference' };
+    }
+
+    visited.add(refPath);
+    const refSchema = spec.components?.schemas?.[refPath] || spec.definitions?.[refPath];
+    if (refSchema) {
+      return resolveSchemaRefs(refSchema, spec, visited);
+    }
+  }
+
+  // Recursively resolve nested schemas
+  const resolved: any = { ...schema };
+
+  if (schema.properties) {
+    resolved.properties = {};
+    for (const [key, value] of Object.entries(schema.properties)) {
+      resolved.properties[key] = resolveSchemaRefs(value, spec, new Set(visited));
+    }
+  }
+
+  if (schema.items) {
+    resolved.items = resolveSchemaRefs(schema.items, spec, new Set(visited));
+  }
+
+  if (schema.allOf) {
+    resolved.allOf = schema.allOf.map((s: any) => resolveSchemaRefs(s, spec, new Set(visited)));
+  }
+
+  if (schema.anyOf) {
+    resolved.anyOf = schema.anyOf.map((s: any) => resolveSchemaRefs(s, spec, new Set(visited)));
+  }
+
+  if (schema.oneOf) {
+    resolved.oneOf = schema.oneOf.map((s: any) => resolveSchemaRefs(s, spec, new Set(visited)));
+  }
+
+  return resolved;
 }
 
 /**
@@ -21,9 +75,13 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
       optionalFields: [],
       flatStructure: true,
       responseType: 'unknown',
-      example: {}
+      example: {},
+      fullSchema: null
     };
   }
+
+  // Resolve all $ref references to get full schema
+  const fullSchema = resolveSchemaRefs(schema, spec);
 
   // Handle $ref references - support both OpenAPI 3.0 and Swagger 2.0
   if (schema.$ref) {
@@ -43,7 +101,8 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
       optionalFields: [],
       flatStructure: true,
       responseType: schema.type,
-      example: schema.type === 'integer' ? 12345 : 'example'
+      example: schema.type === 'integer' ? 12345 : 'example',
+      fullSchema
     };
   }
 
@@ -103,7 +162,8 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
       optionalFields,
       flatStructure: true, // Prefer flat structure
       responseType: 'object',
-      example
+      example,
+      fullSchema
     };
   }
 
@@ -112,7 +172,8 @@ export function analyzeSchema(schema: any, spec: any): SimplifiedSchema {
     optionalFields: [],
     flatStructure: true,
     responseType: 'unknown',
-    example: {}
+    example: {},
+    fullSchema
   };
 }
 

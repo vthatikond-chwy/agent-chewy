@@ -15,7 +15,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-valid-zipcode test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-address-with-postal-code-and-4-extension test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -23,7 +23,7 @@ Given('the API endpoint for verify-valid-zipcode test is {string}', function (th
   };
 });
 
-Given('the request body for verify-valid-zipcode is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-address-with-postal-code-and-4-extension is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -35,30 +35,30 @@ Given('the request body for verify-valid-zipcode is:', function (this: CustomWor
   };
 });
 
-When('I send a POST request for verify-valid-zipcode', async function (this: CustomWorld) {
+When('I send a POST request for verify-address-with-postal-code-and-4-extension', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
+    if (axios.isAxiosError(error)) {
       this.response = error.response;
     } else {
-      throw error; // Rethrow if it's not an axios error with a response
+      throw error;
     }
   }
 });
 
-Then('the response status for verify-valid-zipcode should be 200', function (this: CustomWorld) {
+Then('the response status for verify-address-with-postal-code-and-4-extension should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-valid-zipcode should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-address-with-postal-code-and-4-extension should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseCode = this.response?.data.responseCode;
   expect(responseCode).to.equal(expectedCode);
 });
 
-Then('the response[0].postalChanged should be false for verify-valid-zipcode', function (this: CustomWorld) {
-  // Since the endpoint returns an object, not an array, directly access the property
+Then('the response[0].postalChanged should be true for verify-address-with-postal-code-and-4-extension', function (this: CustomWorld) {
+  // Since the endpoint returns an object, not an array, we directly access the property
   const postalChanged = this.response?.data.postalChanged;
-  expect(postalChanged).to.be.false;
+  expect(postalChanged).to.be.true;
 });
