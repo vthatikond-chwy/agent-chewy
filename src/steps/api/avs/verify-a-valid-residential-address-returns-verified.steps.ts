@@ -2,7 +2,6 @@ import { Given, When, Then, World } from '@cucumber/cucumber';
 import axios from 'axios';
 import type { AxiosResponse } from 'axios';
 import { expect } from 'chai';
-
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-address-with-postal-code-and-4-extension test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-a-valid-residential-address-returns-verified test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -23,7 +22,7 @@ Given('the API endpoint for verify-address-with-postal-code-and-4-extension test
   };
 });
 
-Given('the request body for verify-address-with-postal-code-and-4-extension is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-a-valid-residential-address-returns-verified is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -35,12 +34,12 @@ Given('the request body for verify-address-with-postal-code-and-4-extension is:'
   };
 });
 
-When('I send a POST request for verify-address-with-postal-code-and-4-extension', async function (this: CustomWorld) {
+When('I send a POST request for verify-a-valid-residential-address-returns-verified', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (axios.isAxiosError(error) && error.response) {
       this.response = error.response;
     } else {
       throw error;
@@ -48,17 +47,11 @@ When('I send a POST request for verify-address-with-postal-code-and-4-extension'
   }
 });
 
-Then('the response status for verify-address-with-postal-code-and-4-extension should be 200', function (this: CustomWorld) {
+Then('the response status for verify-a-valid-residential-address-returns-verified should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-address-with-postal-code-and-4-extension should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-a-valid-residential-address-returns-verified should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseCode = this.response?.data.responseCode;
   expect(responseCode).to.equal(expectedCode);
-});
-
-Then('the response[0].postalChanged should be true for verify-address-with-postal-code-and-4-extension', function (this: CustomWorld) {
-  // Since the endpoint returns an object, not an array, we directly access the property
-  const postalChanged = this.response?.data.postalChanged;
-  expect(postalChanged).to.be.true;
 });

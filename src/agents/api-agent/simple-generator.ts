@@ -694,8 +694,17 @@ ${teamRules?.stepDefinitionPatterns?.quotedStringHandling?.example ? `   - Team-
 21. CRITICAL - Request Body Structure: Build a simple object with only the fields from the data table.
 22. CRITICAL - Response Assertions: Match the actual response type. If the API returns an integer (user ID), assert it's a number, not an object with properties.
 23. CRITICAL - Generate ALL step definitions: You MUST generate step definitions for EVERY step in the feature file. Parse the feature file and ensure every Given/When/Then/And/But step has a corresponding step definition.
+    EXCEPTION: NEVER generate a step definition for "the response matches the expected schema" - this is handled by common.steps.ts
 24. CRITICAL - Data Table Consistency: Data tables MUST have consistent column counts. Header row column count must match all data rows. If data row has more columns than header, truncate extra columns.
-25. CRITICAL - Schema Validation: DO NOT generate step definitions for "the response matches the expected schema" - this is handled by common.steps.ts with Ajv schema validation against the Swagger spec.
+25. ❌ NEVER GENERATE THIS STEP ❌: DO NOT generate step definitions for "the response matches the expected schema" - this step is ALREADY implemented in common.steps.ts with Ajv schema validation. Generating a duplicate will cause "Multiple step definitions match" errors and break all tests. If you see this step in the feature file, SKIP IT in the step definitions file.
+
+    ❌ WRONG (DO NOT DO THIS):
+    Then('the response matches the expected schema', function() {
+      // This will cause duplicate step definition error!
+    });
+
+    ✅ CORRECT (SKIP THIS STEP):
+    // Schema validation step is handled by common.steps.ts - DO NOT generate it here
 
 CRITICAL - Step Definition Matching: 
 - In Cucumber, "And" steps match the previous step type (Given/When/Then)
