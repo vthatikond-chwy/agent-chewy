@@ -428,9 +428,6 @@ ${rulesContext ? `\n\n${rulesContext}` : ''}`;
       // Ensure feature files use path only, not full URL
       content = content.replace(/https:\/\/avs\.scff\.stg\.chewy\.com\/avs\/v1\.0\/verifyAddress/g, '/avs/v1.0/verifyAddress');
       
-      // Validate and fix data table consistency (column count mismatches)
-      content = this.validateAndFixDataTablesInFeature(content);
-      
       // Fix endpoint selection based on Swagger spec and scenario context
       content = this.fixEndpointSelection(content, scenario, swaggerSpec);
       
@@ -506,6 +503,9 @@ ${rulesContext ? `\n\n${rulesContext}` : ''}`;
           }
         }
       }
+      
+      // Final validation: Ensure data table consistency after all modifications
+      content = this.validateAndFixDataTablesInFeature(content);
       
       return content;
       
@@ -1564,6 +1564,7 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
 
   /**
    * Validate and fix data table consistency in feature files (for feature file generation)
+   * Ensures all data table rows have the same number of columns as the header
    */
   private validateAndFixDataTablesInFeature(featureContent: string): string {
     // Find all data tables
@@ -1571,6 +1572,7 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
     const fixedLines: string[] = [];
     let inDataTable = false;
     let headerCols = 0;
+    let headerCells: string[] = [];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -1578,26 +1580,45 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
       
       // Check if this line is part of a data table
       if (trimmed.includes('|') && (trimmed.startsWith('|') || line.match(/^\s+\|/))) {
-        const cols = (line.match(/\|/g) || []).length - 1;
+        // Split by | and get all cells
+        const allCells = line.split('|');
+        // Extract cells - remove leading/trailing empty cells but keep middle ones (even if empty)
+        const cells: string[] = [];
+        for (let idx = 0; idx < allCells.length; idx++) {
+          const cell = allCells[idx].trim();
+          // Skip leading empty cell (before first |)
+          if (idx === 0 && cell === '') continue;
+          // Skip trailing empty cell (after last |)
+          if (idx === allCells.length - 1 && cell === '') continue;
+          // Keep all other cells (including empty middle cells)
+          cells.push(cell);
+        }
+        const cols = cells.length;
         
         if (!inDataTable) {
           // First line of table - this is the header
           inDataTable = true;
           headerCols = cols;
+          headerCells = cells;
           fixedLines.push(line);
         } else {
           // Data row - check column count
+          const indent = line.match(/^\s*/)?.[0] || '';
+          
           if (cols === headerCols) {
+            // Correct number of columns
             fixedLines.push(line);
           } else if (cols > headerCols) {
-            // Too many columns - truncate
-            const cells = line.split('|').map(c => c.trim()).filter(c => c);
+            // Too many columns - truncate to match header
             const fixedCells = cells.slice(0, headerCols);
-            const indent = line.match(/^\s*/)?.[0] || '';
             fixedLines.push(`${indent}| ${fixedCells.join(' | ')} |`);
           } else {
-            // Too few columns - keep as is (might be intentional)
-            fixedLines.push(line);
+            // Too few columns - pad with empty cells to match header
+            const paddedCells = [...cells];
+            while (paddedCells.length < headerCols) {
+              paddedCells.push('');
+            }
+            fixedLines.push(`${indent}| ${paddedCells.join(' | ')} |`);
           }
         }
       } else {
@@ -1605,6 +1626,7 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
         if (inDataTable) {
           inDataTable = false;
           headerCols = 0;
+          headerCells = [];
         }
         fixedLines.push(line);
       }
