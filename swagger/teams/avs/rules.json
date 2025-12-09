@@ -92,6 +92,37 @@
         "country": "US"
       }
     },
+    "invalidAddresses": {
+      "verifyAddress": {
+        "invalidZipcode": {
+          "streets": ["123 Invalid St"],
+          "city": "Nowhere",
+          "stateOrProvince": "XX",
+          "postalCode": "00000",
+          "country": "US"
+        },
+        "missingFields": {
+          "streets": ["123 Main St"],
+          "city": "Somewhere",
+          "stateOrProvince": "CA",
+          "country": "US"
+        }
+      },
+      "suggestAddresses": {
+        "incomplete": {
+          "streets": ["123 Incomplete Ave"],
+          "city": "Unknown",
+          "country": "US"
+        },
+        "invalidZipcode": {
+          "streets": ["123 Invalid St"],
+          "city": "Nowhere",
+          "stateOrProvince": "XX",
+          "postalCode": "00000",
+          "country": "US"
+        }
+      }
+    },
     "requiredFields": {
       "/avs/v1.0/verifyAddress": ["streets", "city", "stateOrProvince", "postalCode", "country"],
       "/avs/v1.0/suggestAddresses": ["streets", "city", "country"]

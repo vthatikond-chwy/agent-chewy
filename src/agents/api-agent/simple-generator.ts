@@ -439,7 +439,15 @@ ${rulesContext ? `\n\n${rulesContext}` : ''}`;
       }
       
       // Post-process: Replace ANY non-working addresses with working test data from rules
-      if (teamRules?.testData?.workingAddresses) {
+      // BUT skip this for negative scenarios (they already have invalid data from enforceWorkingTestData)
+      const isNegativeScenario = scenario.type === 'negative' || 
+                                 scenario.type === 'boundary' ||
+                                 scenario.name.toLowerCase().includes('invalid') ||
+                                 scenario.name.toLowerCase().includes('missing') ||
+                                 scenario.name.toLowerCase().includes('error') ||
+                                 scenario.name.toLowerCase().includes('fail');
+      
+      if (!isNegativeScenario && teamRules?.testData?.workingAddresses) {
         let workingData = null;
         if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
           workingData = teamRules.testData.workingAddresses.verifyAddress;
@@ -1687,21 +1695,34 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
 
   /**
    * Enforce working test data from rules - replace any addresses with working addresses
-   * DEFAULT TO TRUE - Always use working test data from rules.json
+   * For negative/boundary scenarios, use invalid test data if available
    */
   private enforceWorkingTestData(content: string, scenario: TestScenario, teamRules: any): string {
     if (!teamRules?.testData?.workingAddresses) {
       return content;
     }
     
-    // Determine which working address to use based on scenario context FIRST, then endpoint
-    // DEFAULT TO TRUE: Always use working test data from rules.json
-    let workingData = null;
+    // Determine if this is a negative/boundary scenario that needs invalid test data
     const scenarioNameLower = scenario.name.toLowerCase();
+    const scenarioDescLower = (scenario.description || '').toLowerCase();
     const contentLower = content.toLowerCase();
     
-    // Check scenario name and content for hints about which endpoint/data to use
-    // Priority: Scenario context > Endpoint
+    // Check for negative/boundary indicators
+    const isNegativeScenario = scenario.type === 'negative' || 
+                               scenario.type === 'boundary' ||
+                               scenarioNameLower.includes('invalid') ||
+                               scenarioNameLower.includes('missing') ||
+                               scenarioNameLower.includes('error') ||
+                               scenarioNameLower.includes('fail') ||
+                               scenarioNameLower.includes('incorrect') ||
+                               scenarioDescLower.includes('invalid') ||
+                               scenarioDescLower.includes('missing') ||
+                               scenarioDescLower.includes('error') ||
+                               contentLower.includes('invalid') ||
+                               contentLower.includes('missing required');
+    
+    // Determine which test data to use based on scenario type and context
+    let testData = null;
     const isResidentialAddress = scenarioNameLower.includes('residential') || 
                                   scenarioNameLower.includes('verify') ||
                                   contentLower.includes('residential') ||
@@ -1711,36 +1732,69 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
                               !scenarioNameLower.includes('residential') &&
                               !scenarioNameLower.includes('verify');
     
-    // PRIORITY 1: Scenario context (residential/verify) - use verifyAddress data
-    if (isResidentialAddress && teamRules.testData.workingAddresses.verifyAddress) {
-      // Residential/verify scenario - ALWAYS use verifyAddress data (DEFAULT TO TRUE)
-      workingData = teamRules.testData.workingAddresses.verifyAddress;
-    } 
-    // PRIORITY 2: Endpoint-based selection
-    else if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
-      // verifyAddress endpoint - use verifyAddress data
-      workingData = teamRules.testData.workingAddresses.verifyAddress;
-    } else if (scenario.endpoint.includes('suggest') && !isResidentialAddress) {
-      // suggestAddresses endpoint - use suggestAddresses data (only if not residential scenario)
-      workingData = teamRules.testData.workingAddresses.suggestAddresses;
-    } 
-    // PRIORITY 3: Default fallback
-    else {
-      // Default to verifyAddress for residential, suggestAddresses otherwise
-      workingData = teamRules.testData.workingAddresses.verifyAddress || 
-                    teamRules.testData.workingAddresses.suggestAddresses;
+    // For negative scenarios, try to use invalid test data first
+    if (isNegativeScenario && teamRules.testData.invalidAddresses) {
+      // Determine which invalid data to use based on scenario context
+      if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+        // Check for specific invalid data types
+        if (scenarioNameLower.includes('zipcode') || scenarioNameLower.includes('postal') || contentLower.includes('zipcode')) {
+          testData = teamRules.testData.invalidAddresses.verifyAddress?.invalidZipcode;
+          console.log('✅ Using invalid zipcode test data for negative verifyAddress scenario');
+        } else if (scenarioNameLower.includes('missing') || contentLower.includes('missing')) {
+          testData = teamRules.testData.invalidAddresses.verifyAddress?.missingFields;
+          console.log('✅ Using missing fields test data for negative verifyAddress scenario');
+        } else {
+          // Default invalid data for verifyAddress
+          testData = teamRules.testData.invalidAddresses.verifyAddress?.invalidZipcode ||
+                     teamRules.testData.invalidAddresses.verifyAddress?.missingFields;
+          if (testData) console.log('✅ Using default invalid test data for negative verifyAddress scenario');
+        }
+      } else if (scenario.endpoint.includes('suggest')) {
+        // Check for specific invalid data types
+        if (scenarioNameLower.includes('zipcode') || scenarioNameLower.includes('postal') || contentLower.includes('zipcode')) {
+          testData = teamRules.testData.invalidAddresses.suggestAddresses?.invalidZipcode;
+          console.log('✅ Using invalid zipcode test data for negative suggestAddresses scenario');
+        } else if (scenarioNameLower.includes('incomplete') || contentLower.includes('incomplete')) {
+          testData = teamRules.testData.invalidAddresses.suggestAddresses?.incomplete;
+          console.log('✅ Using incomplete test data for negative suggestAddresses scenario');
+        } else {
+          // Default invalid data for suggestAddresses
+          testData = teamRules.testData.invalidAddresses.suggestAddresses?.incomplete ||
+                     teamRules.testData.invalidAddresses.suggestAddresses?.invalidZipcode;
+          if (testData) console.log('✅ Using default invalid test data for negative suggestAddresses scenario');
+        }
+      }
     }
     
-    if (!workingData) {
+    // Fall back to working data if no invalid data found or if positive scenario
+    if (!testData) {
+      // PRIORITY 1: Scenario context (residential/verify) - use verifyAddress data
+      if (isResidentialAddress && teamRules.testData.workingAddresses.verifyAddress) {
+        testData = teamRules.testData.workingAddresses.verifyAddress;
+      } 
+      // PRIORITY 2: Endpoint-based selection
+      else if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+        testData = teamRules.testData.workingAddresses.verifyAddress;
+      } else if (scenario.endpoint.includes('suggest') && !isResidentialAddress) {
+        testData = teamRules.testData.workingAddresses.suggestAddresses;
+      } 
+      // PRIORITY 3: Default fallback
+      else {
+        testData = teamRules.testData.workingAddresses.verifyAddress || 
+                   teamRules.testData.workingAddresses.suggestAddresses;
+      }
+    }
+    
+    if (!testData) {
       return content;
     }
     
-    // Extract working address values
-    const workingStreet = Array.isArray(workingData.streets) ? workingData.streets[0] : workingData.streets;
-    const workingCity = workingData.city || '';
-    const workingState = workingData.stateOrProvince || '';
-    const workingPostal = workingData.postalCode || '';
-    const workingCountry = workingData.country || '';
+    // Extract test data values (working or invalid)
+    const testStreet = Array.isArray(testData.streets) ? testData.streets[0] : testData.streets;
+    const testCity = testData.city || '';
+    const testState = testData.stateOrProvince || '';
+    const testPostal = testData.postalCode || '';
+    const testCountry = testData.country || '';
     
     // Find data tables in the feature file and replace with working data
     const lines = content.split('\n');
@@ -1770,15 +1824,15 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
           
           for (const field of headerFields) {
             if (field.toLowerCase() === 'streets' || field.toLowerCase() === 'street') {
-              dataRow.push(workingStreet);
+              dataRow.push(testStreet);
             } else if (field.toLowerCase() === 'city') {
-              dataRow.push(workingCity);
+              dataRow.push(testCity);
             } else if (field.toLowerCase() === 'stateorprovince' || field.toLowerCase() === 'state') {
-              dataRow.push(workingState);
+              dataRow.push(testState);
             } else if (field.toLowerCase() === 'postalcode' || field.toLowerCase() === 'postal' || field.toLowerCase() === 'zip') {
-              dataRow.push(workingPostal);
+              dataRow.push(testPostal);
             } else if (field.toLowerCase() === 'country') {
-              dataRow.push(workingCountry);
+              dataRow.push(testCountry);
             } else {
               // Keep original value for other fields (like addressType, latitude, etc.)
               const fieldIndex = headerFields.indexOf(field);
