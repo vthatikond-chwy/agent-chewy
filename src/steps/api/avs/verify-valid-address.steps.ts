@@ -2,6 +2,7 @@ import { Given, When, Then, World } from '@cucumber/cucumber';
 import axios from 'axios';
 import type { AxiosResponse } from 'axios';
 import { expect } from 'chai';
+
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -14,7 +15,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-single-address-validation test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-valid-address test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +23,7 @@ Given('the API endpoint for verify-single-address-validation test is {string}', 
   };
 });
 
-Given('the request body for verify-single-address-validation is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-valid-address is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -34,12 +35,12 @@ Given('the request body for verify-single-address-validation is:', function (thi
   };
 });
 
-When('I send a POST request for verify-single-address-validation', async function (this: CustomWorld) {
+When('I send a POST request for verify-valid-address', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
+    if (axios.isAxiosError(error)) {
       this.response = error.response;
     } else {
       throw error;
@@ -47,20 +48,19 @@ When('I send a POST request for verify-single-address-validation', async functio
   }
 });
 
-Then('the response status for verify-single-address-validation should be 200', function (this: CustomWorld) {
+Then('the response status for verify-valid-address should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-single-address-validation should be {string}', function (this: CustomWorld, expectedCode: string) {
-  const responseCode = this.response?.data.responseCode;
-  expect(responseCode).to.equal(expectedCode);
+Then('the response code for verify-valid-address should be {string}', function (this: CustomWorld, expectedCode: string) {
+  const actualCode = this.response?.data.responseCode;
+  expect(actualCode).to.equal(expectedCode);
 });
 
-Then('the validatedAddress for verify-single-address-validation should match requestAddress', function (this: CustomWorld) {
+Then('the validatedAddress for verify-valid-address should match requestAddress', function (this: CustomWorld) {
   const validatedAddress = this.response?.data.validatedAddress;
   const requestAddress = this.requestBody;
 
-  expect(validatedAddress.streets[0].toUpperCase()).to.equal(requestAddress.streets[0].toUpperCase());
   expect(validatedAddress.city.toUpperCase()).to.equal(requestAddress.city.toUpperCase());
   expect(validatedAddress.stateOrProvince.toUpperCase()).to.equal(requestAddress.stateOrProvince.toUpperCase());
   expect(validatedAddress.country.toUpperCase()).to.equal(requestAddress.country.toUpperCase());

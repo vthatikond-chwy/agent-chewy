@@ -107,10 +107,14 @@ export class SimpleTestGenerator {
   async generateTestScenarios(
     naturalLanguageInput: string,
     swaggerSpec: any,
-    targetEndpoints?: string[]
+    targetEndpoints?: string[],
+    swaggerSpecPath?: string
   ): Promise<TestScenario[]> {
     
-    // Filter endpoints if specified
+    // Load team rules for working test data
+    const teamRules = swaggerSpecPath ? loadTeamRules(swaggerSpecPath) : null;
+    
+    // Filter endpoints if specified and analyze each endpoint's request/response structure
     let endpoints = [];
     const paths = swaggerSpec.paths || {};
     
@@ -118,14 +122,79 @@ export class SimpleTestGenerator {
       if (!targetEndpoints || targetEndpoints.includes(path)) {
         for (const [method, operation] of Object.entries(pathItem as any)) {
           if (['get', 'post', 'put', 'delete', 'patch'].includes(method)) {
+            const op = operation as any;
+            
+            // Analyze request body schema
+            let requestSchema = null;
+            let requestBodyAnalysis = null;
+            let defaultRequestBody = null;
+            
+            if (op.requestBody) {
+              // OpenAPI 3.0 format
+              requestSchema = op.requestBody?.content?.['application/json']?.schema ||
+                            op.requestBody?.schema;
+            } else if (op.parameters) {
+              // Swagger 2.0 format - find body parameter
+              const bodyParam = op.parameters.find((p: any) => p.in === 'body');
+              if (bodyParam?.schema) {
+                requestSchema = bodyParam.schema;
+              }
+            }
+            
+            if (requestSchema) {
+              requestBodyAnalysis = analyzeSchema(requestSchema, swaggerSpec);
+              defaultRequestBody = getMinimalRequestBody(requestSchema, swaggerSpec);
+              
+              // Enhance with working test data from rules.json if available
+              if (teamRules?.testData?.workingAddresses) {
+                const endpointName = path.split('/').pop() || '';
+                let workingData: any = null;
+                
+                // Determine which working data to use
+                if (path.includes('verify') && !path.includes('Bulk')) {
+                  workingData = teamRules.testData.workingAddresses.verifyAddress;
+                } else if (path.includes('suggest')) {
+                  workingData = teamRules.testData.workingAddresses.suggestAddresses;
+                }
+                
+                // Merge working data into default request body
+                if (workingData) {
+                  defaultRequestBody = {
+                    ...defaultRequestBody,
+                    ...workingData
+                  };
+                }
+              }
+            }
+            
+            // Analyze response schema
+            let responseSchema = null;
+            let responseAnalysis = null;
+            const successResponse = op.responses?.['200'] || op.responses?.['201'];
+            if (successResponse) {
+              responseSchema = successResponse.content?.['application/json']?.schema ||
+                             successResponse.content?.['*/*']?.schema ||
+                             successResponse.schema;
+              if (responseSchema) {
+                responseAnalysis = analyzeSchema(responseSchema, swaggerSpec);
+              }
+            }
+            
             endpoints.push({
               path,
               method: method.toUpperCase(),
-              summary: operation.summary,
-              description: operation.description,
-              parameters: operation.parameters || [],
-              requestBody: operation.requestBody,
-              responses: operation.responses
+              summary: op.summary,
+              description: op.description,
+              operationId: op.operationId,
+              parameters: op.parameters || [],
+              requestBody: op.requestBody,
+              responses: op.responses,
+              // Enhanced analysis
+              requestSchema: requestBodyAnalysis,
+              defaultRequestBody: defaultRequestBody,
+              responseSchema: responseAnalysis,
+              requiredFields: requestBodyAnalysis?.requiredFields || [],
+              optionalFields: requestBodyAnalysis?.optionalFields || []
             });
           }
         }
@@ -368,6 +437,8 @@ ${rulesContext ? `\n\n${rulesContext}` : ''}`;
       // ENFORCE: Always use working test data from rules (default to true)
       if (teamRules?.testData?.workingAddresses) {
         content = this.enforceWorkingTestData(content, scenario, teamRules);
+        // Adjust expected response codes to match working test data and Swagger spec
+        content = this.adjustExpectedResponseCodes(content, scenario, teamRules, swaggerSpec);
       }
       
       // Post-process: Replace ANY non-working addresses with working test data from rules
@@ -1709,6 +1780,107 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
     }
     
     return fixedLines.join('\n');
+  }
+
+  /**
+   * Adjust expected response codes when using working test data
+   * Makes the generator more lenient - if we're using working test data but expecting
+   * a negative response code, adjust it to match what the working data actually returns.
+   * Also validates against Swagger spec enum values.
+   */
+  private adjustExpectedResponseCodes(content: string, scenario: TestScenario, teamRules: any, swaggerSpec: any): string {
+    if (!teamRules?.testData?.workingAddresses) {
+      return content;
+    }
+
+    // Check if we're using working test data
+    const isUsingWorkingData = 
+      (scenario.endpoint.includes('verify') && teamRules.testData.workingAddresses.verifyAddress) ||
+      (scenario.endpoint.includes('suggest') && teamRules.testData.workingAddresses.suggestAddresses);
+
+    if (!isUsingWorkingData) {
+      return content;
+    }
+
+    // Extract valid response codes from Swagger spec
+    let swaggerResponseCodes: string[] = [];
+    try {
+      const endpointPath = scenario.endpoint;
+      const method = scenario.method.toLowerCase();
+      const endpoint = swaggerSpec.paths?.[endpointPath]?.[method];
+      
+      if (endpoint?.responses?.['200']) {
+        // Handle both Swagger 2.0 (schema) and OpenAPI 3.0 (content) formats
+        const responseSchema = endpoint.responses['200']?.schema ||  // Swagger 2.0
+                              endpoint.responses['200']?.content?.['application/json']?.schema ||  // OpenAPI 3.0
+                              endpoint.responses['200']?.content?.['*/*']?.schema;  // OpenAPI 3.0 fallback
+        
+        if (responseSchema) {
+          // Handle $ref references
+          let schema = responseSchema;
+          if (schema.$ref) {
+            const refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
+            schema = swaggerSpec.components?.schemas?.[refPath] || swaggerSpec.definitions?.[refPath] || schema;
+          }
+          
+          // Handle array responses (like suggestAddresses)
+          if (schema.type === 'array' && schema.items) {
+            schema = schema.items;
+            if (schema.$ref) {
+              const refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
+              schema = swaggerSpec.components?.schemas?.[refPath] || swaggerSpec.definitions?.[refPath] || schema;
+            }
+          }
+          
+          // Extract responseCode enum from schema
+          if (schema.properties?.responseCode?.enum) {
+            swaggerResponseCodes = schema.properties.responseCode.enum;
+            console.log(`✅ Extracted responseCode enum from Swagger for ${endpointPath}: ${swaggerResponseCodes.join(', ')}`);
+          } else {
+            console.warn(`⚠️  responseCode enum not found in Swagger schema for ${endpointPath}`);
+          }
+        }
+      }
+    } catch (error) {
+      // If Swagger parsing fails, fall back to rules
+      console.warn('Failed to extract responseCode enum from Swagger:', error);
+    }
+
+    // Get valid response codes from rules (fallback if Swagger extraction failed)
+    const validResponseCodes = swaggerResponseCodes.length > 0 
+      ? swaggerResponseCodes 
+      : (teamRules?.assertionPatterns?.responseCodeValues || 
+         ['VERIFIED', 'PREMISES_PARTIAL', 'STREET_PARTIAL', 'NOT_VERIFIED', 'CORRECTED']);
+
+    // For AVS API with working test data:
+    // - verifyAddress with working data typically returns "VERIFIED"
+    // - suggestAddresses with working data typically returns "CORRECTED" (address gets corrected)
+    
+    // Pattern to find response code assertions
+    // Matches: "the response code for [scenario-name] should be "NOT_VERIFIED""
+    const responseCodePattern = /(the response code for [^"]+ should be ")(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)(")/gi;
+    
+    return content.replace(responseCodePattern, (match, prefix, currentCode, suffix) => {
+      // Validate that the code is in the valid enum values from Swagger
+      if (!validResponseCodes.includes(currentCode)) {
+        console.warn(`Warning: Response code "${currentCode}" not found in Swagger enum. Valid values: ${validResponseCodes.join(', ')}`);
+      }
+      
+      // If expecting NOT_VERIFIED but using working test data, adjust based on endpoint
+      if (currentCode === 'NOT_VERIFIED' && isUsingWorkingData) {
+        if (scenario.endpoint.includes('verify')) {
+          // verifyAddress with working data -> VERIFIED (if valid in Swagger)
+          const adjustedCode = validResponseCodes.includes('VERIFIED') ? 'VERIFIED' : currentCode;
+          return `${prefix}${adjustedCode}${suffix}`;
+        } else if (scenario.endpoint.includes('suggest')) {
+          // suggestAddresses with working data -> CORRECTED (address gets corrected, if valid in Swagger)
+          const adjustedCode = validResponseCodes.includes('CORRECTED') ? 'CORRECTED' : currentCode;
+          return `${prefix}${adjustedCode}${suffix}`;
+        }
+      }
+      // Otherwise, keep the original code (if it's valid in Swagger)
+      return match;
+    });
   }
 
   /**

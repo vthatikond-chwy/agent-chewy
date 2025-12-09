@@ -180,7 +180,8 @@ apiCommand
       const scenarios = await generator.generateTestScenarios(
         input,
         spec,
-        options.endpoints
+        options.endpoints,
+        swaggerPath
       );
       console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
       
@@ -204,12 +205,12 @@ apiCommand
           console.log(`   🔨 ${scenario.name}`);
           
           // Generate Cucumber feature
-          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec, swaggerPath);
+          const cucumberFeature = await generator.generateCucumberFeature(scenario, spec, swaggerPath || undefined);
           const featurePath = generator.writeFeatureFile(scenario, cucumberFeature, service, category);
           generatedFiles.features.push(featurePath);
           
           // Generate step definitions
-          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec, swaggerPath);
+          const stepDefs = await generator.generateStepDefinitions(cucumberFeature, scenario, spec, swaggerPath || undefined);
           const stepsPath = generator.writeStepDefinitionFile(scenario, stepDefs, service);
           generatedFiles.steps.push(stepsPath);
           
@@ -281,7 +282,8 @@ apiCommand
       const scenarios = await generator.generateTestScenarios(
         naturalLanguageInput,
         spec,
-        [options.path]
+        [options.path],
+        options.swagger
       );
 
       console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
@@ -382,7 +384,8 @@ apiCommand
       const scenarios = await generator.generateTestScenarios(
         naturalLanguageInput,
         spec,
-        taggedEndpoints
+        taggedEndpoints,
+        options.swagger
       );
 
       console.log(`✅ Generated ${scenarios.length} test scenarios\n`);
