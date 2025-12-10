@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for valid-address test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for valid-address-returns-verified test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +22,7 @@ Given('the API endpoint for valid-address test is {string}', function (this: Cus
   };
 });
 
-Given('the request body for valid-address is prepared with the following details', function (this: CustomWorld, dataTable) {
+Given('the request body for valid-address-returns-verified is prepared with the following details', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const addressData = rows[0];
   this.requestBody = {
@@ -34,7 +34,7 @@ Given('the request body for valid-address is prepared with the following details
   };
 });
 
-Given('the request body for valid-address with unit is prepared with the following details', function (this: CustomWorld, dataTable) {
+Given('the request body for valid-address-returns-verified with unit is prepared with the following details', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const addressData = rows[0];
   const streets = [addressData.street1];
@@ -50,48 +50,61 @@ Given('the request body for valid-address with unit is prepared with the followi
   };
 });
 
-When('I send a POST request for valid-address to the address verification service', async function (this: CustomWorld) {
+When('I send a POST request for valid-address-returns-verified to the address verification service', async function (this: CustomWorld) {
+  // Log request for reports
+  console.log('\n📤 REQUEST:');
+  console.log(`POST ${this.baseUrl}${this.endpoint}`);
+  console.log('Request Body:', JSON.stringify(this.requestBody, null, 2));
+  
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
+    
+    // Log response for reports
+    console.log('\n📥 RESPONSE:');
+    console.log(`Status: ${response.status}`);
+    console.log('Response Body:', JSON.stringify(response.data, null, 2));
   } catch (error) {
     if (axios.isAxiosError(error)) {
       this.response = error.response;
+      console.log('\n📥 RESPONSE (Error):');
+      console.log(`Status: ${error.response?.status}`);
+      console.log('Response Body:', JSON.stringify(error.response?.data, null, 2));
     } else {
       throw error;
     }
   }
 });
 
-Then('the HTTP response status for valid-address should be {int}', function (this: CustomWorld, expectedStatus: number) {
+Then('the HTTP response status for valid-address-returns-verified should be {int}', function (this: CustomWorld, expectedStatus: number) {
   expect(this.response?.status).to.equal(expectedStatus);
 });
 
-Then('the response code for valid-address should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for valid-address-returns-verified should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('responseCode');
   expect(responseBody.responseCode).to.equal(expectedCode);
 });
 
-Then('the validatedAddress should be populated for valid-address', function (this: CustomWorld) {
+Then('the validatedAddress should be populated for valid-address-returns-verified', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('validatedAddress');
   expect(responseBody.validatedAddress).to.not.be.null;
 });
 
-Then('the validatedAddress should be null for valid-address', function (this: CustomWorld) {
+Then('the validatedAddress should be null for valid-address-returns-verified', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('validatedAddress');
   expect(responseBody.validatedAddress).to.be.null;
 });
 
-Then('the requestAddressSanitized should be null for valid-address', function (this: CustomWorld) {
+Then('the requestAddressSanitized should be null for valid-address-returns-verified', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('requestAddressSanitized');
   expect(responseBody.requestAddressSanitized).to.be.null;
 });
 
-Then('the requestAddressSanitized should be populated for valid-address', function (this: CustomWorld) {
+Then('the requestAddressSanitized should be populated for valid-address-returns-verified', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('requestAddressSanitized');
   expect(responseBody.requestAddressSanitized).to.not.be.null;

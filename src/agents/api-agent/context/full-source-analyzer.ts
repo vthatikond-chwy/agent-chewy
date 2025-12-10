@@ -30,6 +30,7 @@ export class FullSourceAnalyzer {
   private tempDir: string;
   private repoDir: string = '';
   private allTestData: Map<string, any[]> = new Map();
+  private testFilesAnalyzedCount: number = 0;
   private businessRules: BusinessRule[] = [];
   private edgeCases: EdgeCase[] = [];
   private configValues: Map<string, any> = new Map();
@@ -55,6 +56,7 @@ export class FullSourceAnalyzer {
       this.repoDir = await this.cloneRepo(repoUrl, teamName);
 
       // Reset state
+      this.testFilesAnalyzedCount = 0;
       this.allTestData = new Map([
         ['verified', []],
         ['corrected', []],
@@ -93,12 +95,12 @@ export class FullSourceAnalyzer {
       console.log('-'.repeat(40));
       const context = this.buildFullContext(teamName);
 
-      // Cleanup
-      this.cleanup();
-
+      // Calculate stats BEFORE cleanup (repo still exists)
+      const filesAnalyzed = this.countFiles(this.repoDir);
+      
       const stats = {
-        filesAnalyzed: this.countFiles(this.repoDir),
-        testFilesFound: this.countTestFiles(),
+        filesAnalyzed,
+        testFilesFound: this.testFilesAnalyzedCount,
         verifiedAddresses: this.allTestData.get('verified')?.length || 0,
         correctedAddresses: this.allTestData.get('corrected')?.length || 0,
         notVerifiedAddresses: this.allTestData.get('notVerified')?.length || 0,
@@ -110,6 +112,9 @@ export class FullSourceAnalyzer {
       };
 
       this.printSummary(stats);
+
+      // Cleanup AFTER stats calculation
+      this.cleanup();
 
       return { success: true, context, stats };
 
@@ -186,6 +191,7 @@ export class FullSourceAnalyzer {
       return;
     }
 
+    this.testFilesAnalyzedCount++;
     console.log(`   📄 ${fileName}`);
 
     // Extract test addresses
@@ -232,25 +238,26 @@ export class FullSourceAnalyzer {
     let currentCategory = '';
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i] || '';
+      const lineLower = line.toLowerCase();
 
-      // Detect category
-      if (line.includes('verified') && (line.includes('.add') || line.includes('='))) {
-        currentCategory = 'verified';
-      } else if (line.includes('corrected') && (line.includes('.add') || line.includes('='))) {
-        currentCategory = 'corrected';
-      } else if (line.includes('not_verified') && (line.includes('.add') || line.includes('='))) {
+      // Detect category (case-insensitive matching)
+      if (/not.?verified/i.test(line) && (line.includes('.add') || line.includes('='))) {
         currentCategory = 'notVerified';
-      } else if (line.includes('street_partial') && (line.includes('.add') || line.includes('='))) {
+      } else if (/street.?partial/i.test(line) && (line.includes('.add') || line.includes('='))) {
         currentCategory = 'streetPartial';
-      } else if (line.includes('premises_partial') && (line.includes('.add') || line.includes('='))) {
+      } else if (/premises.?partial/i.test(line) && (line.includes('.add') || line.includes('='))) {
         currentCategory = 'premisesPartial';
+      } else if (lineLower.includes('corrected') && (line.includes('.add') || line.includes('='))) {
+        currentCategory = 'corrected';
+      } else if (lineLower.includes('verified') && !/not.?verified/i.test(line) && (line.includes('.add') || line.includes('='))) {
+        currentCategory = 'verified';
       }
 
       // Parse AVSAddress constructor
       const addressMatch = line.match(/new\s+AVSAddress\s*\((.*?)\)/);
       if (addressMatch && currentCategory) {
-        const address = this.parseAddressConstructor(addressMatch[1], lines[i - 1] || '');
+        const address = this.parseAddressConstructor(addressMatch[1] || '', lines[i - 1] || '');
         if (address) {
           const list = this.allTestData.get(currentCategory) || [];
           list.push(address);

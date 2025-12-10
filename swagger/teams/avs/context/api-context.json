@@ -1,6 +1,6 @@
 {
   "version": "3.0.0",
-  "lastUpdated": "2025-12-10T06:34:30.122Z",
+  "lastUpdated": "2025-12-10T19:59:52.421Z",
   "team": "avs",
   "domain": {
     "serviceName": "AVS Service",
@@ -817,7 +817,7 @@
         {
           "code": "PREMISES_PARTIAL",
           "description": "Partial premises verification",
-          "validatedAddressState": "null",
+          "validatedAddressState": "populated",
           "sanitizedAddressState": "null",
           "triggers": [
             "Wrong unit number"
@@ -1409,17 +1409,18 @@
           ]
         },
         {
-          "name": "Verified Address 28",
-          "description": "Known verified address from source tests",
+          "name": "Verified Address 28 - +4 portion of address is wrong, it should still be \"VERIFIED\"",
+          "description": "+4 portion of address is wrong, it should still be \"VERIFIED\"",
           "endpoint": "/avs/v1.0/verifyAddress",
           "data": {
             "streets": [
-              "39 Dolores Dr"
+              "32 Kingsbury St"
             ],
-            "city": "Burlington",
-            "stateOrProvince": "ND",
-            "postalCode": "",
-            "country": "US"
+            "city": "Derry",
+            "stateOrProvince": "NH",
+            "postalCode": "03038-1654",
+            "country": "US",
+            "note": "+4 portion of address is wrong, it should still be \"VERIFIED\""
           },
           "expectedResponseCode": "VERIFIED",
           "expectedHttpStatus": 200,
@@ -1431,90 +1432,6 @@
         },
         {
           "name": "Verified Address 29",
-          "description": "Known verified address from source tests",
-          "endpoint": "/avs/v1.0/verifyAddress",
-          "data": {
-            "streets": [
-              "foo"
-            ],
-            "city": "Giberish",
-            "stateOrProvince": "nb",
-            "postalCode": "03251",
-            "country": "US"
-          },
-          "expectedResponseCode": "VERIFIED",
-          "expectedHttpStatus": 200,
-          "assertions": [
-            "responseCode equals VERIFIED",
-            "validatedAddress is not null",
-            "requestAddressSanitized is null"
-          ]
-        },
-        {
-          "name": "Verified Address 30",
-          "description": "Known verified address from source tests",
-          "endpoint": "/avs/v1.0/verifyAddress",
-          "data": {
-            "streets": [
-              "3 Corona Del Mar"
-            ],
-            "city": "Corona Del",
-            "stateOrProvince": "la",
-            "postalCode": "",
-            "country": "US"
-          },
-          "expectedResponseCode": "VERIFIED",
-          "expectedHttpStatus": 200,
-          "assertions": [
-            "responseCode equals VERIFIED",
-            "validatedAddress is not null",
-            "requestAddressSanitized is null"
-          ]
-        },
-        {
-          "name": "Verified Address 31",
-          "description": "Known verified address from source tests",
-          "endpoint": "/avs/v1.0/verifyAddress",
-          "data": {
-            "streets": [
-              "194 Henson Hl"
-            ],
-            "city": "West Liberty",
-            "stateOrProvince": "KY",
-            "postalCode": "41472",
-            "country": "US"
-          },
-          "expectedResponseCode": "VERIFIED",
-          "expectedHttpStatus": 200,
-          "assertions": [
-            "responseCode equals VERIFIED",
-            "validatedAddress is not null",
-            "requestAddressSanitized is null"
-          ]
-        },
-        {
-          "name": "Verified Address 32",
-          "description": "Known verified address from source tests",
-          "endpoint": "/avs/v1.0/verifyAddress",
-          "data": {
-            "streets": [
-              "Sylvester rd"
-            ],
-            "city": "Burlington",
-            "stateOrProvince": "ma",
-            "postalCode": "00501",
-            "country": "US"
-          },
-          "expectedResponseCode": "VERIFIED",
-          "expectedHttpStatus": 200,
-          "assertions": [
-            "responseCode equals VERIFIED",
-            "validatedAddress is not null",
-            "requestAddressSanitized is null"
-          ]
-        },
-        {
-          "name": "Verified Address 33",
           "description": "Known verified address from source tests",
           "endpoint": "/avs/v1.0/verifyAddress",
           "data": {
@@ -1535,7 +1452,7 @@
           ]
         },
         {
-          "name": "Verified Address 34",
+          "name": "Verified Address 30",
           "description": "Known verified address from source tests",
           "endpoint": "/avs/v1.0/verifyAddress",
           "data": {
@@ -1545,6 +1462,49 @@
             "city": "Saco",
             "stateOrProvince": "ME",
             "postalCode": "04072",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 31 - Given",
+          "description": "Given",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "150 S 5th St Suite 800"
+            ],
+            "city": "Minneapolis",
+            "stateOrProvince": "MN",
+            "postalCode": "55402",
+            "country": "US",
+            "note": "Given"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 32",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "123456 Fake Avenue"
+            ],
+            "city": "Fake City",
+            "stateOrProvince": "XX",
+            "postalCode": "00000",
             "country": "US"
           },
           "expectedResponseCode": "VERIFIED",
@@ -1696,24 +1656,87 @@
           ]
         },
         {
-          "name": "Corrected Address 8 - +4 portion of address is wrong, it should still be \"VERIFIED\"",
-          "description": "+4 portion of address is wrong, it should still be \"VERIFIED\"",
+          "name": "Invalid Address 1",
+          "description": "Address that cannot be verified",
           "endpoint": "/avs/v1.0/verifyAddress",
           "data": {
             "streets": [
-              "32 Kingsbury St"
+              "39 Dolores Dr"
             ],
-            "city": "Derry",
-            "stateOrProvince": "NH",
-            "postalCode": "03038-1654",
-            "country": "US",
-            "note": "+4 portion of address is wrong, it should still be \"VERIFIED\""
+            "city": "Burlington",
+            "stateOrProvince": "ND",
+            "postalCode": "",
+            "country": "US"
           },
-          "expectedResponseCode": "CORRECTED",
+          "expectedResponseCode": "NOT_VERIFIED",
           "expectedHttpStatus": 200,
           "assertions": [
-            "responseCode equals CORRECTED",
-            "validatedAddress is not null"
+            "responseCode equals NOT_VERIFIED",
+            "validatedAddress is null",
+            "requestAddressSanitized is not null"
+          ]
+        },
+        {
+          "name": "Invalid Address 2",
+          "description": "Address that cannot be verified",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "foo"
+            ],
+            "city": "Giberish",
+            "stateOrProvince": "nb",
+            "postalCode": "03251",
+            "country": "US"
+          },
+          "expectedResponseCode": "NOT_VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals NOT_VERIFIED",
+            "validatedAddress is null",
+            "requestAddressSanitized is not null"
+          ]
+        },
+        {
+          "name": "Invalid Address 3",
+          "description": "Address that cannot be verified",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "3 Corona Del Mar"
+            ],
+            "city": "Corona Del",
+            "stateOrProvince": "la",
+            "postalCode": "",
+            "country": "US"
+          },
+          "expectedResponseCode": "NOT_VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals NOT_VERIFIED",
+            "validatedAddress is null",
+            "requestAddressSanitized is not null"
+          ]
+        },
+        {
+          "name": "Invalid Address 4",
+          "description": "Address that cannot be verified",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "194 Henson Hl"
+            ],
+            "city": "West Liberty",
+            "stateOrProvince": "KY",
+            "postalCode": "41472",
+            "country": "US"
+          },
+          "expectedResponseCode": "NOT_VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals NOT_VERIFIED",
+            "validatedAddress is null",
+            "requestAddressSanitized is not null"
           ]
         },
         {
@@ -1747,6 +1770,26 @@
             "city": "Burlington",
             "stateOrProvince": "ma",
             "postalCode": "01803",
+            "country": "US"
+          },
+          "expectedResponseCode": "STREET_PARTIAL",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals STREET_PARTIAL",
+            "validatedAddress is null"
+          ]
+        },
+        {
+          "name": "Street Partial 3",
+          "description": "Street name only verified",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "Sylvester rd"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "00501",
             "country": "US"
           },
           "expectedResponseCode": "STREET_PARTIAL",
@@ -2515,6 +2558,55 @@
       },
       {
         "streets": [
+          "32 Kingsbury St"
+        ],
+        "city": "Derry",
+        "stateOrProvince": "NH",
+        "postalCode": "03038-1654",
+        "country": "US",
+        "note": "+4 portion of address is wrong, it should still be \"VERIFIED\""
+      },
+      {
+        "streets": [
+          "123 Example Lane"
+        ],
+        "city": "Saco",
+        "stateOrProvince": "ME",
+        "postalCode": "04072",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "123 EXAMPLE LN"
+        ],
+        "city": "Saco",
+        "stateOrProvince": "ME",
+        "postalCode": "04072",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "150 S 5th St Suite 800"
+        ],
+        "city": "Minneapolis",
+        "stateOrProvince": "MN",
+        "postalCode": "55402",
+        "country": "US",
+        "note": "Given"
+      },
+      {
+        "streets": [
+          "123456 Fake Avenue"
+        ],
+        "city": "Fake City",
+        "stateOrProvince": "XX",
+        "postalCode": "00000",
+        "country": "US"
+      }
+    ],
+    "invalidAddresses": [
+      {
+        "streets": [
           "39 Dolores Dr"
         ],
         "city": "Burlington",
@@ -2548,36 +2640,8 @@
         "stateOrProvince": "KY",
         "postalCode": "41472",
         "country": "US"
-      },
-      {
-        "streets": [
-          "Sylvester rd"
-        ],
-        "city": "Burlington",
-        "stateOrProvince": "ma",
-        "postalCode": "00501",
-        "country": "US"
-      },
-      {
-        "streets": [
-          "123 Example Lane"
-        ],
-        "city": "Saco",
-        "stateOrProvince": "ME",
-        "postalCode": "04072",
-        "country": "US"
-      },
-      {
-        "streets": [
-          "123 EXAMPLE LN"
-        ],
-        "city": "Saco",
-        "stateOrProvince": "ME",
-        "postalCode": "04072",
-        "country": "US"
       }
     ],
-    "invalidAddresses": [],
     "boundaryData": []
   },
   "generationHints": [

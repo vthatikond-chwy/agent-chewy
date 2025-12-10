@@ -451,12 +451,25 @@ Given('the request body for ${scenario.id} with unit is prepared with the follow
 });
 
 When('I send a POST request for ${scenario.id} to the address verification service', async function (this: CustomWorld) {
+  // Log request for reports
+  console.log('\\n📤 REQUEST:');
+  console.log(\`POST \${this.baseUrl}\${this.endpoint}\`);
+  console.log('Request Body:', JSON.stringify(this.requestBody, null, 2));
+  
   try {
     const response = await axios.post(\`\${this.baseUrl}\${this.endpoint}\`, this.requestBody, { headers: this.headers });
     this.response = response;
+    
+    // Log response for reports
+    console.log('\\n📥 RESPONSE:');
+    console.log(\`Status: \${response.status}\`);
+    console.log('Response Body:', JSON.stringify(response.data, null, 2));
   } catch (error) {
     if (axios.isAxiosError(error)) {
       this.response = error.response;
+      console.log('\\n📥 RESPONSE (Error):');
+      console.log(\`Status: \${error.response?.status}\`);
+      console.log('Response Body:', JSON.stringify(error.response?.data, null, 2));
     } else {
       throw error;
     }

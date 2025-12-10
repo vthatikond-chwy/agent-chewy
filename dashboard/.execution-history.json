@@ -1,0 +1,66 @@
+{
+  "avs": [
+    {
+      "id": "1765390918315",
+      "name": "Valid Address Returns Verified",
+      "date": "12/10/2025, 10:21:58 AM",
+      "duration": "2.2s",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed",
+      "output": "[dotenv@17.2.3] injecting env (7) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops\n..\n📤 REQUEST:\nPOST https://avs.scff.stg.chewy.com/avs/v1.0/verifyAddress\nRequest Body: {\n  \"streets\": [\n    \"39 Dolores Dr\"\n  ],\n  \"city\": \"Burlington\",\n  \"stateOrProvince\": \"ma\",\n  \"postalCode\": \"01803\",\n  \"country\": \"US\"\n}\n\n📥 RESPONSE:\nStatus: 200\nResponse Body: {\n  \"requestAddress\": {\n    \"streets\": [\n      \"39 Dolores Dr\"\n    ],\n    \"city\": \"Burlington\",\n    \"stateOrProvince\": \"ma\",\n    \"postalCode\": \"01803\",\n    \"country\": \"US\",\n    \"addressType\": null\n  },\n  \"validatedAddress\": {\n    \"streets\": [\n      \"39 DOLORES DR\"\n    ],\n    \"city\": \"BURLINGTON\",\n    \"stateOrProvince\": \"MA\",\n    \"postalCode\": \"01803-1713\",\n    \"country\": \"US\",\n    \"addressType\": \"RESIDENTIAL\"\n  },\n  \"requestAddressSanitized\": null,\n  \"responseCode\": \"VERIFIED\",\n  \"shippableResponseCode\": \"SHIPPABLE\",\n  \"engineResponseCode\": \"AVS_FEDEX\",\n  \"stateProvinceChanged\": false,\n  \"cityChanged\": false,\n  \"streetChanged\": false,\n  \"postalChanged\": true\n}\n.....✅ Response schema validation passed for POST /avs/v1.0/verifyAddress (200)\n.\n\n1 scenario (1 passed)\n8 steps (8 passed)\n0m00.647s (executing steps: 0m00.638s)\n",
+      "requestUrl": "https://avs.scff.stg.chewy.com/avs/v1.0/verifyAddress",
+      "request": "{\n  \"streets\": [\n    \"39 Dolores Dr\"\n  ],\n  \"city\": \"Burlington\",\n  \"stateOrProvince\": \"ma\",\n  \"postalCode\": \"01803\",\n  \"country\": \"US\"\n}",
+      "responseStatus": "200",
+      "response": "{\n  \"requestAddress\": {\n    \"streets\": [\n      \"39 Dolores Dr\"\n    ],\n    \"city\": \"Burlington\",\n    \"stateOrProvince\": \"ma\",\n    \"postalCode\": \"01803\",\n    \"country\": \"US\",\n    \"addressType\": null\n  },\n  \"validatedAddress\": {\n    \"streets\": [\n      \"39 DOLORES DR\"\n    ],\n    \"city\": \"BURLINGTON\",\n    \"stateOrProvince\": \"MA\",\n    \"postalCode\": \"01803-1713\",\n    \"country\": \"US\",\n    \"addressType\": \"RESIDENTIAL\"\n  },\n  \"requestAddressSanitized\": null,\n  \"responseCode\": \"VERIFIED\",\n  \"shippableResponseCode\": \"SHIPPABLE\",\n  \"engineResponseCode\": \"AVS_FEDEX\",\n  \"stateProvinceChanged\": false,\n  \"cityChanged\": false,\n  \"streetChanged\": false,\n  \"postalChanged\": true\n}"
+    },
+    {
+      "id": "1765390852584",
+      "name": "Valid Address Returns Verified",
+      "date": "12/10/2025, 10:20:52 AM",
+      "duration": "1.5s",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed",
+      "output": "[dotenv@17.2.3] injecting env (7) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`\n.......✅ Response schema validation passed for POST /avs/v1.0/verifyAddress (200)\n.\n\n1 scenario (1 passed)\n8 steps (8 passed)\n0m00.293s (executing steps: 0m00.282s)\n",
+      "requestUrl": null,
+      "request": null,
+      "responseStatus": null,
+      "response": null
+    },
+    {
+      "id": "1765390804029",
+      "name": "Valid Address Returns Verified",
+      "date": "12/10/2025, 10:20:04 AM",
+      "duration": "2.0s",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed",
+      "output": "[dotenv@17.2.3] injecting env (7) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops\n.......✅ Response schema validation passed for POST /avs/v1.0/verifyAddress (200)\n.\n\n1 scenario (1 passed)\n8 steps (8 passed)\n0m00.843s (executing steps: 0m00.833s)\n",
+      "requestUrl": null,
+      "request": null,
+      "responseStatus": null,
+      "response": null
+    },
+    {
+      "id": "1765390643027",
+      "name": "Valid Address Returns Verified",
+      "date": "12/10/2025, 10:17:23 AM",
+      "duration": "2.7s",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed",
+      "output": "[dotenv@17.2.3] injecting env (7) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com\n[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }\n[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops\n[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }\n.......✅ Response schema validation passed for POST /avs/v1.0/verifyAddress (200)\n.\n\n1 scenario (1 passed)\n8 steps (8 passed)\n0m00.844s (executing steps: 0m00.834s)\n",
+      "request": null,
+      "response": null
+    },
+    {
+      "name": "Valid Address Returns Verified",
+      "date": "12/10/2025, 10:14:49 AM",
+      "duration": "1.4s",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed"
+    }
+  ]
+}
