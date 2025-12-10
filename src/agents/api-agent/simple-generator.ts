@@ -218,6 +218,77 @@ export class SimpleTestGenerator {
       `- ${ep.method} ${ep.path}\n  Summary: ${ep.summary}\n  Description: ${ep.description || 'N/A'}`
     ).join('\n\n');
 
+    // Build response code behavior context for address validation APIs
+    let responseCodeBehaviorContext = '';
+    if (teamRules?.assertionPatterns?.responseCodeValues) {
+      responseCodeBehaviorContext = `
+
+CRITICAL - Response Code Behavior for Address Validation APIs:
+Understanding how input data affects response codes is essential for generating accurate test scenarios.
+
+Response Code Patterns:
+- VERIFIED: Returned when address is valid and complete (all required fields present and correct)
+  Example: Valid address with postal code → responseCode: "VERIFIED", postalChanged: false, validatedAddress populated, requestAddressSanitized: null
+  
+- CORRECTED: Returned when address is valid but some fields were corrected/added by the API
+  Example: Valid address with empty postal code → responseCode: "CORRECTED", postalChanged: true, validatedAddress.postalCode populated
+  Example: Valid address with incorrect city → responseCode: "CORRECTED", cityChanged: true
+  
+- NOT_VERIFIED: Returned when address cannot be verified (invalid address, mismatched city/state/postal, non-existent address)
+  Example: Invalid address with mismatched city/state/postal → responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated
+  Example: Non-existent address → responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized contains sanitized version
+  
+- PREMISES_PARTIAL: Returned when street address is partially verified (street exists but specific premises/number doesn't match exactly)
+  Example: Valid street name but wrong street number → responseCode: "PREMISES_PARTIAL", validatedAddress populated with corrected number, streetChanged: true
+  
+- STREET_PARTIAL: Returned when only the street name is verified but not the full address
+  Example: Street name exists but no specific address number → responseCode: "STREET_PARTIAL", validatedAddress populated with street-level validation
+
+Field Change Indicators:
+When responseCode is "CORRECTED", check these boolean fields to see what was corrected:
+- postalChanged: true when postal code was added or corrected
+- cityChanged: true when city was corrected
+- stateProvinceChanged: true when state/province was corrected
+- streetChanged: true when street address was corrected
+
+Response Structure Indicators:
+- validatedAddress: Populated for VERIFIED, CORRECTED, PREMISES_PARTIAL, and STREET_PARTIAL; null for NOT_VERIFIED
+- requestAddressSanitized: null for VERIFIED, CORRECTED, PREMISES_PARTIAL, and STREET_PARTIAL; populated for NOT_VERIFIED (contains sanitized version of input)
+
+Test Scenario Examples:
+1. Valid address with postal code:
+   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["600 HARLAN CT"], ... }
+   - Expected: responseCode: "VERIFIED", postalChanged: false, validatedAddress populated, requestAddressSanitized: null
+   
+2. Valid address with empty postal code:
+   - Input: { postalCode: "", city: "Bonaire", stateOrProvince: "GA", streets: ["600 HARLAN CT"], ... }
+   - Expected: responseCode: "CORRECTED", postalChanged: true, validatedAddress.postalCode populated, requestAddressSanitized: null
+
+3. Invalid address (mismatched city/state/postal):
+   - Input: { postalCode: "31005-5427", city: "Snoqualmie", stateOrProvince: "GA", streets: ["123 xyz street"], ... }
+   - Expected: responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated (with sanitized streets like "123 XYZ ST")
+
+4. Partially verified premises (wrong street number):
+   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["999 HARLAN CT"], ... }
+   - Expected: responseCode: "PREMISES_PARTIAL", validatedAddress populated with corrected number, streetChanged: true
+
+5. Partially verified street (street name only):
+   - Input: { postalCode: "31005", city: "Bonaire", stateOrProvince: "GA", streets: ["HARLAN CT"], ... }
+   - Expected: responseCode: "STREET_PARTIAL", validatedAddress populated with street-level validation
+
+When generating test scenarios:
+- For "valid address" or "complete address" scenarios → expect responseCode: "VERIFIED", validatedAddress populated, requestAddressSanitized: null
+- For "missing postal code" or "empty postal code" scenarios → expect responseCode: "CORRECTED" with postalChanged: true, validatedAddress.postalCode populated
+- For "incorrect city" scenarios → expect responseCode: "CORRECTED" with cityChanged: true
+- For "incorrect state" scenarios → expect responseCode: "CORRECTED" with stateProvinceChanged: true
+- For "incorrect street" scenarios → expect responseCode: "CORRECTED" with streetChanged: true
+- For "wrong street number" or "incorrect premises" scenarios → expect responseCode: "PREMISES_PARTIAL", validatedAddress populated, streetChanged: true
+- For "street name only" or "partial street" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress populated
+- For "invalid address" or "mismatched address" or "non-existent address" scenarios → expect responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated
+- Always include assertions for responseCode AND the relevant change indicators (postalChanged, cityChanged, etc.) AND response structure (validatedAddress, requestAddressSanitized)
+`;
+    }
+
     const systemPrompt = `You are an expert API test architect. Generate test scenarios from natural language requirements and API specifications.
 
 CRITICAL - Endpoint Selection Based on Swagger Spec:
@@ -293,16 +364,59 @@ ${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCou
     swaggerSpecPath?: string
   ): Promise<string> {
     
-    const systemPrompt = `You are an expert in writing Cucumber/Gherkin test scenarios for API testing.
-Generate clear, executable BDD scenarios following best practices.
-Return ONLY the Cucumber feature text, no markdown code blocks or explanations.`;
-
     const scenarioName = scenario.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     
     // Load team rules
     const teamRules = swaggerSpecPath ? loadTeamRules(swaggerSpecPath) : null;
     const rulesContext = getRulesContext(teamRules);
     
+    // Build response code assertion guidance
+    let responseCodeAssertionGuidance = '';
+    if (teamRules?.assertionPatterns?.responseCodeValues) {
+      responseCodeAssertionGuidance = `
+
+CRITICAL - Response Code and Field Change Assertions:
+For address validation APIs, you MUST include assertions for:
+1. Response Code: Check responseCode field matches expected value (VERIFIED, CORRECTED, NOT_VERIFIED, PREMISES_PARTIAL, STREET_PARTIAL)
+2. Field Change Indicators: When responseCode is "CORRECTED" or "PREMISES_PARTIAL", check the relevant change indicators:
+   - postalChanged: true/false - indicates if postal code was added or corrected
+   - cityChanged: true/false - indicates if city was corrected
+   - stateProvinceChanged: true/false - indicates if state/province was corrected
+   - streetChanged: true/false - indicates if street address was corrected
+3. Response Structure: Check validatedAddress and requestAddressSanitized based on response code
+
+Example assertions for different scenarios:
+- Valid address with postal code (VERIFIED):
+  * "And the response code for ${scenarioName} should be \"VERIFIED\""
+  * "And the postalChanged field for ${scenarioName} should be false"
+  
+- Valid address with empty postal code (CORRECTED):
+  * "And the response code for ${scenarioName} should be \"CORRECTED\""
+  * "And the postalChanged field for ${scenarioName} should be true"
+  * "And the validatedAddress.postalCode for ${scenarioName} should not be empty"
+
+- Valid address with incorrect city (CORRECTED):
+  * "And the response code for ${scenarioName} should be \"CORRECTED\""
+  * "And the cityChanged field for ${scenarioName} should be true"
+
+- Partially verified premises (PREMISES_PARTIAL):
+  * "And the response code for ${scenarioName} should be \"PREMISES_PARTIAL\""
+  * "And the streetChanged field for ${scenarioName} should be true"
+  * "And the validatedAddress should be populated for ${scenarioName}"
+
+- Partially verified street (STREET_PARTIAL):
+  * "And the response code for ${scenarioName} should be \"STREET_PARTIAL\""
+  * "And the validatedAddress should be populated for ${scenarioName}"
+
+- Invalid address (NOT_VERIFIED):
+  * "And the response code for ${scenarioName} should be \"NOT_VERIFIED\""
+  * "And the validatedAddress should be null for ${scenarioName}"
+  * "And the requestAddressSanitized should be populated for ${scenarioName}"
+
+IMPORTANT: Always include assertions for both responseCode AND the relevant change indicators based on the scenario type. Also check validatedAddress and requestAddressSanitized based on response code.
+`;
+    }
+
     // Analyze Swagger schema to get required fields and example data
     let schemaInfo = '';
     let exampleData = '';
@@ -375,6 +489,10 @@ THIS IS THE DEFAULT BEHAVIOR - ALWAYS USE WORKING TEST DATA FROM RULES.`;
       requiredFieldsInfo = `\nRequired fields for this endpoint: ${teamRules.testData.requiredFields[scenario.endpoint].join(', ')}`;
     }
     
+    const systemPrompt = `You are an expert in writing Cucumber/Gherkin test scenarios for API testing.
+Generate clear, executable BDD scenarios following best practices.
+Return ONLY the Cucumber feature text, no markdown code blocks or explanations.${responseCodeAssertionGuidance}`;
+
     const userPrompt = `Generate a Cucumber/Gherkin feature file for this API test scenario:
 
 Scenario Details:

@@ -119,6 +119,7 @@ apiCommand
   .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
   .option('-e, --endpoints <paths...>', 'Filter by specific endpoint paths')
   .option('-t, --tags <tags...>', 'Filter by Swagger tags')
+  .option('--clean', 'Clean up old generated files before generating new ones')
   .action(async (options: {
     swagger?: string;
     input?: string;
@@ -126,6 +127,7 @@ apiCommand
     apiKey?: string;
     endpoints?: string[];
     tags?: string[];
+    clean?: boolean;
   }) => {
     try {
       console.log('\n🚀 API Test Generator\n');
@@ -168,12 +170,14 @@ apiCommand
       console.log('📖 Loading Swagger specification...');
       const spec = await SwaggerParser.dereference(swaggerPath) as any;
       console.log(`   API: ${spec.info.title} (v${spec.info.version})\n`);
-      
-      // Clean up old files before generating new ones
-      const projectName = swaggerPath ? generator.extractProjectName(swaggerPath) : null;
-      if (projectName) {
-        console.log('🧹 Cleaning up old generated files...');
-        generator.cleanupOldFiles(projectName);
+
+      // Clean up old files before generating new ones (only if --clean flag is specified)
+      if (options.clean) {
+        const projectName = swaggerPath ? generator.extractProjectName(swaggerPath) : null;
+        if (projectName) {
+          console.log('🧹 Cleaning up old generated files...');
+          generator.cleanupOldFiles(projectName);
+        }
       }
       
       console.log('🤖 Generating test scenarios with OpenAI...');
@@ -249,11 +253,13 @@ apiCommand
   .requiredOption('-p, --path <path>', 'Endpoint path (e.g., /api/users)')
   .requiredOption('-m, --method <method>', 'HTTP method (GET, POST, etc.)')
   .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .option('--clean', 'Clean up old generated files before generating new ones')
   .action(async (options: {
     swagger: string;
     path: string;
     method: string;
     apiKey?: string;
+    clean?: boolean;
   }) => {
     try {
       console.log('\n🎯 Endpoint Test Generator\n');
@@ -271,11 +277,13 @@ apiCommand
       console.log('📖 Loading Swagger specification...');
       const spec = await SwaggerParser.dereference(options.swagger) as any;
 
-      // Clean up old files before generating new ones
-      const projectName = options.swagger ? generator.extractProjectName(options.swagger) : null;
-      if (projectName) {
-        console.log('🧹 Cleaning up old generated files...');
-        generator.cleanupOldFiles(projectName);
+      // Clean up old files before generating new ones (only if --clean flag is specified)
+      if (options.clean) {
+        const projectName = options.swagger ? generator.extractProjectName(options.swagger) : null;
+        if (projectName) {
+          console.log('🧹 Cleaning up old generated files...');
+          generator.cleanupOldFiles(projectName);
+        }
       }
       
       console.log('🤖 Generating test scenarios...');
