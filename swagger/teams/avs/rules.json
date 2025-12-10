@@ -1,81 +1,53 @@
 {
   "teamName": "avs",
-  "responsePatterns": {
-    "arrayResponseEndpoints": [
-      "/avs/v1.0/suggestAddresses"
-    ],
-    "objectResponseEndpoints": [
-      "/avs/v1.0/verifyAddress",
-      "/avs/v1.0/verifyBulkAddress"
-    ],
-    "arrayResponseStructure": {
-      "/avs/v1.0/suggestAddresses": {
-        "description": "Returns array of AVSResponse objects",
-        "structure": "Array<AVSResponse>",
-        "itemStructure": {
-          "type": "object",
-          "properties": {
-            "requestAddress": {
-              "type": "object",
-              "properties": {
-                "streets": "array<string>",
-                "city": "string",
-                "stateOrProvince": "string",
-                "country": "string",
-                "postalCode": "string"
-              }
-            },
-            "validatedAddress": {
-              "type": "object",
-              "properties": {
-                "streets": "array<string>",
-                "city": "string",
-                "stateOrProvince": "string",
-                "country": "string",
-                "postalCode": "string"
-              }
-            },
-            "responseCode": "string",
-            "cityChanged": "boolean",
-            "postalChanged": "boolean",
-            "stateProvinceChanged": "boolean",
-            "streetChanged": "boolean",
-            "engineResponseCode": "string"
-          }
-        },
-        "assertionNote": "CRITICAL: Properties like cityChanged, postalChanged, stateProvinceChanged, streetChanged, responseCode, and engineResponseCode are at the TOP LEVEL of each response item, NOT inside requestAddress. Use: response.data[0].cityChanged, NOT response.data[0].requestAddress.cityChanged"
-      }
-    }
-  },
-  "normalizationRules": {
-    "addressComparison": "case-insensitive",
-    "postalCodeHandling": "prefix-match",
-    "streetNameHandling": "abbreviation-tolerant"
-  },
-  "queryParameterHandling": {
-    "/avs/v1.0/suggestAddresses": {
-      "parameters": ["maxSuggestions", "percentMatch", "engine"],
-      "required": []
-    },
+  "baseUrl": "https://avs.scff.stg.chewy.com",
+  
+  "endpoints": {
     "/avs/v1.0/verifyAddress": {
-      "parameters": ["engine"],
-      "required": [],
-      "notes": "DO NOT include query parameters unless explicitly needed. Adding params: { engine: 'default' } causes 400 error 'No engine found that matches: default'. The API works correctly without query parameters."
+      "method": "POST",
+      "description": "Verify a single address",
+      "responseType": "object"
+    },
+    "/avs/v1.0/suggestAddresses": {
+      "method": "POST", 
+      "description": "Get address suggestions",
+      "responseType": "array"
     }
   },
-  "assertionPatterns": {
-    "responseCodeProperty": "responseCode",
-    "responseCodeValues": ["VERIFIED", "PREMISES_PARTIAL", "STREET_PARTIAL", "NOT_VERIFIED", "CORRECTED"],
-    "addressValidation": {
-      "useValidatedAddress": true,
-      "useRequestAddress": true,
-      "compareFields": ["city", "stateOrProvince", "country", "postalCode"]
+
+  "responseCodeBehaviors": {
+    "VERIFIED": {
+      "description": "Address is valid and complete - no corrections needed",
+      "validatedAddress": "populated",
+      "requestAddressSanitized": "null",
+      "triggers": ["valid complete address", "all fields correct"]
+    },
+    "CORRECTED": {
+      "description": "Address is valid but some fields were corrected or added",
+      "validatedAddress": "populated",
+      "requestAddressSanitized": "null",
+      "triggers": ["empty postal code", "incorrect city", "wrong state", "missing state and postal"]
+    },
+    "STREET_PARTIAL": {
+      "description": "Only the street name is verified, not the full premises",
+      "validatedAddress": "null",
+      "requestAddressSanitized": "populated",
+      "triggers": ["wrong street number", "street name only without number"]
+    },
+    "PREMISES_PARTIAL": {
+      "description": "Street address is partially verified",
+      "validatedAddress": "populated",
+      "requestAddressSanitized": "null",
+      "triggers": ["partial premises match"]
+    },
+    "NOT_VERIFIED": {
+      "description": "Address cannot be verified - invalid or non-existent",
+      "validatedAddress": "null",
+      "requestAddressSanitized": "populated",
+      "triggers": ["mismatched city/state/postal", "non-existent address", "fake address"]
     }
   },
-  "errorHandling": {
-    "errorProperty": "message",
-    "errorCodeProperty": "status"
-  },
+
   "testData": {
     "workingAddresses": {
       "verifyAddress": {
@@ -92,93 +64,19 @@
         "country": "US"
       }
     },
-    "invalidAddresses": {
-      "verifyAddress": {
-        "invalidZipcode": {
-          "streets": ["123 Invalid St"],
-          "city": "Nowhere",
-          "stateOrProvince": "XX",
-          "postalCode": "00000",
-          "country": "US"
-        },
-        "missingFields": {
-          "streets": ["123 Main St"],
-          "city": "Somewhere",
-          "stateOrProvince": "CA",
-          "country": "US"
-        }
-      },
-      "suggestAddresses": {
-        "incomplete": {
-          "streets": ["123 Incomplete Ave"],
-          "city": "Unknown",
-          "country": "US"
-        },
-        "invalidZipcode": {
-          "streets": ["123 Invalid St"],
-          "city": "Nowhere",
-          "stateOrProvince": "XX",
-          "postalCode": "00000",
-          "country": "US"
-        }
-      }
-    },
     "requiredFields": {
       "/avs/v1.0/verifyAddress": ["streets", "city", "stateOrProvince", "postalCode", "country"],
       "/avs/v1.0/suggestAddresses": ["streets", "city", "country"]
-    },
-    "optionalFields": {
-      "/avs/v1.0/verifyAddress": ["addressType"],
-      "/avs/v1.0/suggestAddresses": ["stateOrProvince", "postalCode", "addressType"]
     }
   },
-  "stepDefinitionPatterns": {
-    "dataTableParsing": {
-      "useRowsHashForColumns": 2,
-      "useHashesForColumns": 3,
-      "example": {
-        "twoColumn": "Given('the request body for [scenario-name] is:', function (this: CustomWorld, dataTable) {\n  const data = dataTable.rowsHash(); // Use rowsHash() for 2-column key-value tables\n  this.requestBody = {\n    registerType: data.registerType\n  };\n});",
-        "multiColumn": "Given('the request body for [scenario-name] is:', function (this: CustomWorld, dataTable) {\n  const rows = dataTable.hashes(); // Use hashes() for multi-column tables\n  const data = rows[0]; // Extract first row\n  this.requestBody = {\n    streets: [data.streets], // Convert streets to array if needed\n    city: data.city,\n    stateOrProvince: data.stateOrProvince,\n    postalCode: data.postalCode,\n    country: data.country\n  };\n});"
-      }
-    },
-    "arrayAccessPatterns": {
-      "inArrayPattern": "response[{int}].{property} should be in [{string}, {string}, {string}]",
-      "simpleArrayPattern": "response[{int}].{property} should be {value}",
-      "example": {
-        "inArray": "Then('the response[{int}].responseCode should be in [{string}, {string}, {string}] for [scenario-name]', function (this: CustomWorld, index: number, code1: string, code2: string, code3: string) {\n  const responseCode = this.response?.data[index]?.responseCode;\n  const expectedValues = [code1, code2, code3];\n  expect(expectedValues).to.include(responseCode);\n});",
-        "simple": "Then('the response[{int}].postalChanged should be true for [scenario-name]', function (this: CustomWorld, index: number) {\n  const postalChanged = this.response?.data[index]?.postalChanged;\n  expect(postalChanged).to.be.true;\n});"
-      }
-    },
-    "quotedStringHandling": {
-      "convertToPlaceholders": true,
-      "example": "Feature: 'the responseCode should be \"VERIFIED\"'\nStep Def: Then('the responseCode should be {string} for [scenario-name]', function (this: CustomWorld, expectedCode: string) {\n  expect(responseCode).to.equal(expectedCode);\n});"
-    }
+
+  "assertionPatterns": {
+    "responseCodeProperty": "responseCode",
+    "responseCodeValues": ["VERIFIED", "CORRECTED", "STREET_PARTIAL", "PREMISES_PARTIAL", "NOT_VERIFIED"]
   },
+
   "featureFileGeneration": {
-    "stepTextPatterns": {
-      "endpointStep": "Given the API endpoint for {scenarioName} test is {string}",
-      "requestBodyStep": "And the request body for {scenarioName} is:",
-      "actionStep": "When I send a {method} request for {scenarioName}",
-      "statusStep": "Then the response status for {scenarioName} should be {int}",
-      "responseCodeStep": "And the response code for {scenarioName} should be {string}"
-    },
-    "dataTableFormat": {
-      "addressFields": ["streets", "city", "stateOrProvince", "postalCode", "country"],
-      "note": "streets field should be a single string value in the table (will be converted to array in step definition)"
-    },
-    "criticalRules": [
-      "CRITICAL: Always include colon (:) after 'is' when using data tables - CORRECT: 'And the request body for {scenarioName} is:' WRONG: 'And the request body for {scenarioName} is'",
-      "CRITICAL: Use endpoint path only (e.g., '/avs/v1.0/verifyAddress'), never full URL - CORRECT: Given the API endpoint for {scenarioName} test is \"{endpoint}\" WRONG: Given the API endpoint for {scenarioName} test is \"https://avs.scff.stg.chewy.com{endpoint}\"",
-      "CRITICAL: Include scenario name in ALL step definitions to make them unique - Use {scenarioName} in step text",
-      "CRITICAL: For address data in data tables, streets should be a single string value (will be converted to array in step definition)",
-      "CRITICAL: Use the EXACT working test data provided above - copy it EXACTLY as shown - DO NOT modify addresses (e.g., don't change 'Mountain View' to 'Washington' or '1600 Amphitheatre Parkway' to '1600 Pennsylvania Ave NW') - DO NOT use generic addresses - they cause API errors",
-      "CRITICAL: Data table format - ALWAYS use column headers as field names for request bodies - CORRECT: | streets | city | stateOrProvince | country | - WRONG: | field | value | (this is ONLY for 2-column key-value pairs, NOT for request bodies) - For request bodies with multiple fields, each field must be a column header",
-      "For suggestAddresses, use incomplete address (missing postalCode) to trigger suggestions",
-      "CRITICAL - Use working test data from rules.json: ALWAYS use the exact addresses from testData.workingAddresses - generic addresses like '123 Main St', '123 Palm Tree Rd', '456 Disney Ln', 'Miami', 'Orlando' cause 400/500 errors",
-      "For verifyAddress endpoint: MUST use streets: ['600 HARLAN CT'], city: 'Bonaire', stateOrProvince: 'GA', postalCode: '31005-5427', country: 'US'",
-      "For suggestAddresses endpoint: MUST use streets: ['1600 Amphitheatre Pkwy'], city: 'Mountain View', stateOrProvince: 'CA', country: 'US'",
-      "CRITICAL - Data Table Consistency: Data tables MUST have consistent column counts. Header row column count must match all data rows. Generator will automatically fix mismatches by truncating extra columns."
-    ]
+    "dataTableFields": ["streets", "city", "stateOrProvince", "postalCode", "country"],
+    "defaultEndpoint": "/avs/v1.0/verifyAddress"
   }
 }
-

@@ -402,75 +402,59 @@ export class SimpleTestGenerator {
       `- ${ep.method} ${ep.path}\n  Summary: ${ep.summary}\n  Description: ${ep.description || 'N/A'}`
     ).join('\n\n');
 
-    // Build response code behavior context for address validation APIs
+    // Build response code behavior context from rules.json (or use defaults)
     let responseCodeBehaviorContext = '';
-    if (teamRules?.assertionPatterns?.responseCodeValues) {
+    if (teamRules?.responseCodeBehaviors) {
+      // Build context from rules.json responseCodeBehaviors
+      const behaviors = teamRules.responseCodeBehaviors;
+      const responseCodePatterns = Object.entries(behaviors).map(([code, config]: [string, any]) => {
+        return `- ${code}: ${config.description}
+  validatedAddress: ${config.validatedAddress}
+  requestAddressSanitized: ${config.requestAddressSanitized}
+  Triggers: ${config.triggers?.join(', ') || 'N/A'}
+  Endpoint: ${config.endpoint || 'N/A'}`;
+      }).join('\n\n');
+
+      // Build scenario mapping from triggers
+      const scenarioMapping = Object.entries(behaviors).map(([code, config]: [string, any]) => {
+        const triggers = config.triggers || [];
+        return triggers.map((trigger: string) => 
+          `- For "${trigger}" scenarios → expect responseCode: "${code}", validatedAddress: ${config.validatedAddress}, requestAddressSanitized: ${config.requestAddressSanitized}`
+        ).join('\n');
+      }).filter(Boolean).join('\n');
+
       responseCodeBehaviorContext = `
 
-CRITICAL - Response Code Behavior for Address Validation APIs:
+CRITICAL - Response Code Behavior for Address Validation APIs (from rules.json):
 Understanding how input data affects response codes is essential for generating accurate test scenarios.
 
 Response Code Patterns:
-- VERIFIED: Returned when address is valid and complete (all required fields present and correct)
-  Example: Valid address with postal code → responseCode: "VERIFIED", postalChanged: false, validatedAddress populated, requestAddressSanitized: null
-  
-- CORRECTED: Returned when address is valid but some fields were corrected/added by the API
-  Example: Valid address with empty postal code → responseCode: "CORRECTED", postalChanged: true, validatedAddress.postalCode populated
-  Example: Valid address with incorrect city → responseCode: "CORRECTED", cityChanged: true
-  
-- NOT_VERIFIED: Returned when address cannot be verified (invalid address, mismatched city/state/postal, non-existent address)
-  Example: Invalid address with mismatched city/state/postal → responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated
-  Example: Non-existent address → responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized contains sanitized version
-  
-- PREMISES_PARTIAL: Returned when street address is partially verified (street exists but specific premises/number doesn't match exactly)
-  Example: Valid street name but wrong street number → responseCode: "PREMISES_PARTIAL", validatedAddress populated with corrected number, streetChanged: true
-  
-- STREET_PARTIAL: Returned when only the street name is verified but not the full address (no specific premises)
-  Example: Street name exists but no specific address number → responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
-  Example: Wrong street number that doesn't exist → responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
+${responseCodePatterns}
 
-Field Change Indicators:
-When responseCode is "CORRECTED", check these boolean fields to see what was corrected:
+Response Structure Mapping:
+${scenarioMapping}
+
+Field Change Indicators (for CORRECTED responses):
 - postalChanged: true when postal code was added or corrected
 - cityChanged: true when city was corrected
 - stateProvinceChanged: true when state/province was corrected
 - streetChanged: true when street address was corrected
 
-Response Structure Indicators:
-- validatedAddress: Populated for VERIFIED, CORRECTED, PREMISES_PARTIAL; null for STREET_PARTIAL and NOT_VERIFIED
-- requestAddressSanitized: null for VERIFIED, CORRECTED, PREMISES_PARTIAL; populated for STREET_PARTIAL and NOT_VERIFIED (contains sanitized version of input)
+Always include assertions for responseCode AND response structure (validatedAddress, requestAddressSanitized).
+`;
+    } else if (teamRules?.assertionPatterns?.responseCodeValues) {
+      // Fallback to default behavior if no responseCodeBehaviors defined
+      responseCodeBehaviorContext = `
 
-Test Scenario Examples:
-1. Valid address with postal code:
-   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["600 HARLAN CT"], ... }
-   - Expected: responseCode: "VERIFIED", postalChanged: false, validatedAddress populated, requestAddressSanitized: null
-   
-2. Valid address with empty postal code:
-   - Input: { postalCode: "", city: "Bonaire", stateOrProvince: "GA", streets: ["600 HARLAN CT"], ... }
-   - Expected: responseCode: "CORRECTED", postalChanged: true, validatedAddress.postalCode populated, requestAddressSanitized: null
+CRITICAL - Response Code Behavior for Address Validation APIs:
+Response codes: ${teamRules.assertionPatterns.responseCodeValues.join(', ')}
 
-3. Invalid address (mismatched city/state/postal):
-   - Input: { postalCode: "31005-5427", city: "Snoqualmie", stateOrProvince: "GA", streets: ["123 xyz street"], ... }
-   - Expected: responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated (with sanitized streets like "123 XYZ ST")
-
-4. Wrong street number (street exists but number doesn't):
-   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["999 HARLAN CT"], ... }
-   - Expected: responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
-
-5. Street name only (no number):
-   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["HARLAN CT"], ... }
-   - Expected: responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
-
-When generating test scenarios:
-- For "valid address" or "complete address" scenarios → expect responseCode: "VERIFIED", validatedAddress populated, requestAddressSanitized: null
-- For "missing postal code" or "empty postal code" scenarios → expect responseCode: "CORRECTED" with postalChanged: true, validatedAddress.postalCode populated
-- For "incorrect city" scenarios → expect responseCode: "CORRECTED" with cityChanged: true
-- For "incorrect state" scenarios → expect responseCode: "CORRECTED" with stateProvinceChanged: true
-- For "incorrect street" scenarios → expect responseCode: "CORRECTED" with streetChanged: true
-- For "wrong street number" or "incorrect premises" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
-- For "street name only" or "partial street" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
-- For "invalid address" or "mismatched address" or "non-existent address" scenarios → expect responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated
-- Always include assertions for responseCode AND the relevant change indicators (postalChanged, cityChanged, etc.) AND response structure (validatedAddress, requestAddressSanitized)
+Default patterns:
+- VERIFIED: validatedAddress populated, requestAddressSanitized null
+- CORRECTED: validatedAddress populated, requestAddressSanitized null, change indicators true
+- STREET_PARTIAL: validatedAddress null, requestAddressSanitized populated
+- NOT_VERIFIED: validatedAddress null, requestAddressSanitized populated
+- PREMISES_PARTIAL: validatedAddress populated, requestAddressSanitized null
 `;
     }
 
@@ -527,26 +511,50 @@ Instructions:
 `;
     }
 
-    // Build expected response code instructions if specified
+    // Build expected response code instructions if specified (using rules.json if available)
     let expectedResponseCodeInstructions = '';
     if (expectedResponseCode) {
+      // Try to get behavior from rules.json
+      const behavior = teamRules?.responseCodeBehaviors?.[expectedResponseCode];
+      let behaviorInstructions = '';
+      
+      if (behavior) {
+        // Use behavior from rules.json
+        behaviorInstructions = `* validatedAddress should be ${behavior.validatedAddress}
+  * requestAddressSanitized should be ${behavior.requestAddressSanitized}`;
+        if (behavior.changeIndicators && Object.keys(behavior.changeIndicators).length > 0) {
+          const indicators = Object.entries(behavior.changeIndicators)
+            .map(([key, val]) => `  * ${key}: ${val}`)
+            .join('\n');
+          behaviorInstructions += `\n${indicators}`;
+        }
+      } else {
+        // Fallback to hardcoded defaults
+        if (expectedResponseCode === 'NOT_VERIFIED' || expectedResponseCode === 'STREET_PARTIAL') {
+          behaviorInstructions = '* validatedAddress should be null\n  * requestAddressSanitized should be populated';
+        } else if (expectedResponseCode === 'VERIFIED') {
+          behaviorInstructions = '* All change indicators should be false\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null';
+        } else if (expectedResponseCode === 'CORRECTED') {
+          behaviorInstructions = '* Relevant change indicators should be true\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null';
+        } else if (expectedResponseCode === 'PREMISES_PARTIAL') {
+          behaviorInstructions = '* validatedAddress should be populated\n  * requestAddressSanitized should be null';
+        }
+      }
+
       expectedResponseCodeInstructions = `
 
 🚨🚨🚨 CRITICAL - MANDATORY Expected Response Code 🚨🚨🚨
 The user has EXPLICITLY specified the expected response code for this test:
 
 EXPECTED RESPONSE CODE: ${expectedResponseCode}
+${behavior ? `(from rules.json: ${behavior.description})` : ''}
 
 ABSOLUTE REQUIREMENTS:
 - The test assertions MUST expect responseCode to be "${expectedResponseCode}"
-- Do NOT use any other response code (VERIFIED, CORRECTED, NOT_VERIFIED, PREMISES_PARTIAL, STREET_PARTIAL)
+- Do NOT use any other response code
 - This is the HIGHEST PRIORITY requirement - it overrides all other response code logic
 - Include assertions that match ${expectedResponseCode} behavior:
-  ${expectedResponseCode === 'NOT_VERIFIED' ? '* validatedAddress should be null\n  * requestAddressSanitized should be populated' : ''}
-  ${expectedResponseCode === 'VERIFIED' ? '* All change indicators (postalChanged, cityChanged, etc.) should be false\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
-  ${expectedResponseCode === 'CORRECTED' ? '* Relevant change indicators should be true\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
-  ${expectedResponseCode === 'PREMISES_PARTIAL' ? '* validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
-  ${expectedResponseCode === 'STREET_PARTIAL' ? '* validatedAddress should be null\n  * requestAddressSanitized should be populated' : ''}
+  ${behaviorInstructions}
 
 DO NOT DEVIATE FROM THIS EXPECTED RESPONSE CODE UNDER ANY CIRCUMSTANCES.
 `;
