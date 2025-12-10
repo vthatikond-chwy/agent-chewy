@@ -1079,23 +1079,15 @@
                   <strong style="color: var(--accent-green);">What it extracts:</strong> Response codes (VERIFIED, CORRECTED, etc.), validation rules, working test addresses, edge cases
                 </div>
               </div>
-              <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 20px; min-height: 280px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border-color);">
-                <div style="text-align: center; color: var(--text-secondary);">
-                  <div style="font-size: 48px; margin-bottom: 12px;">🎬</div>
-                  <div style="font-size: 13px;">GIF: Building context library</div>
-                  <div style="font-size: 11px; margin-top: 4px;">recordings/step1-context.gif</div>
-                </div>
+              <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center;">
+                <img src="/recordings/step1-context.gif" alt="Building context library" style="width: 100%; height: auto; border-radius: 12px;">
               </div>
             </div>
 
             <!-- Step 2: Describe Test -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 64px;">
-              <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 20px; min-height: 280px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border-color); order: -1;">
-                <div style="text-align: center; color: var(--text-secondary);">
-                  <div style="font-size: 48px; margin-bottom: 12px;">🎬</div>
-                  <div style="font-size: 13px;">GIF: NLP test generation</div>
-                  <div style="font-size: 11px; margin-top: 4px;">recordings/step2-nlp.gif</div>
-                </div>
+              <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center; order: -1;">
+                <img src="/recordings/step2-nlp.gif" alt="NLP test generation" style="width: 100%; height: auto; border-radius: 12px;">
               </div>
               <div>
                 <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
@@ -1165,23 +1157,15 @@
                   <strong style="color: var(--accent-purple);">Reports include:</strong> Request body, response body, HTTP status, duration, pass/fail, schema validation
                 </div>
               </div>
-              <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 20px; min-height: 280px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border-color);">
-                <div style="text-align: center; color: var(--text-secondary);">
-                  <div style="font-size: 48px; margin-bottom: 12px;">🎬</div>
-                  <div style="font-size: 13px;">GIF: Running test & viewing report</div>
-                  <div style="font-size: 11px; margin-top: 4px;">recordings/step3-run.gif</div>
-                </div>
+              <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center;">
+                <img src="/recordings/step3-run.gif" alt="Running test & viewing report" style="width: 100%; height: auto; border-radius: 12px;">
               </div>
             </div>
 
             <!-- Step 4: Self-Heal -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 48px;">
-              <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 20px; min-height: 280px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border-color); order: -1;">
-                <div style="text-align: center; color: var(--text-secondary);">
-                  <div style="font-size: 48px; margin-bottom: 12px;">🎬</div>
-                  <div style="font-size: 13px;">GIF: Context validation & auto-fix</div>
-                  <div style="font-size: 11px; margin-top: 4px;">recordings/step4-validate.gif</div>
-                </div>
+              <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center; order: -1;">
+                <img src="/recordings/step4-validate.gif" alt="Context validation & auto-fix" style="width: 100%; height: auto; border-radius: 12px;">
               </div>
               <div>
                 <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
@@ -1305,7 +1289,23 @@
       loadTheme();
       await loadScenarios();
       await loadContext();
+      // Default to Documentation page
+      showPageDirect('docs');
     });
+    
+    // Show page without event (for initial load)
+    function showPageDirect(page) {
+      document.querySelectorAll('[id^="page-"]').forEach(el => el.style.display = 'none');
+      document.getElementById(`page-${page}`).style.display = 'block';
+      document.getElementById('current-page').textContent = page === 'docs' ? 'Documentation' : page.charAt(0).toUpperCase() + page.slice(1);
+      
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => {
+        if (el.getAttribute('onclick')?.includes(`'${page}'`)) {
+          el.classList.add('active');
+        }
+      });
+    }
 
     function showPage(page) {
       document.querySelectorAll('[id^="page-"]').forEach(el => el.style.display = 'none');

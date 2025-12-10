@@ -9,7 +9,7 @@
   "scripts": {
     "test": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
     "test:api": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/**/*.steps.ts' --format progress",
-    "test:avs": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/avs/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/avs/*.steps.ts' --format progress",
+    "test:avs": "NODE_OPTIONS=\"--import tsx\" npx cucumber-js features/api/avs/**/*.feature --import 'src/steps/api/common/common.steps.ts' --import 'src/steps/api/avs/*.steps.ts' --format pretty",
     "generate:avs": "npx tsx src/cli/index.ts api test -t avs -i",
     "generate:avs:only": "npx tsx src/cli/index.ts api test -t avs --no-run -i",
     "generate:kyrios": "npx tsx src/cli/index.ts api test -t kyrios -i",

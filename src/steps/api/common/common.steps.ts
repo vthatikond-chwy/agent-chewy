@@ -188,8 +188,10 @@ Then('the response matches the expected schema', async function (this: CustomWor
     responseSchema = response.schema;
   }
 
+  const verbose = process.env.VERBOSE === 'true';
+
   if (!responseSchema) {
-    console.warn(`No schema defined for ${statusCode} response`);
+    if (verbose) console.warn(`No schema defined for ${statusCode} response`);
     return;
   }
 
@@ -228,7 +230,7 @@ Then('the response matches the expected schema', async function (this: CustomWor
       return true;
     });
 
-    if (criticalErrors.length > 0) {
+    if (criticalErrors.length > 0 && verbose) {
       console.warn('⚠️  Schema validation warnings (non-critical):');
       console.warn(JSON.stringify(criticalErrors, null, 2));
     }
@@ -243,6 +245,8 @@ Then('the response matches the expected schema', async function (this: CustomWor
   }
 
   // Schema validation passed (or only had non-critical warnings)
-  console.log(`✅ Response schema validation passed for ${method.toUpperCase()} ${endpoint} (${statusCode})`);
+  if (verbose) {
+    console.log(`✅ Response schema validation passed for ${method.toUpperCase()} ${endpoint} (${statusCode})`);
+  }
 });
 

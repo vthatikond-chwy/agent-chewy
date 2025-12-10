@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Chewy - AI-Powered API Test Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-tertiary: #1a1a1a;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --border-color: #2a2a2a;
+      --accent-green: #22c55e;
+      --accent-blue: #3b82f6;
+      --accent-purple: #a855f7;
+      --accent-orange: #f97316;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .logo-icon {
+      font-size: 32px;
+    }
+
+    .github-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 10px 20px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .github-link:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 60px 40px;
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1));
+      border-radius: 16px;
+      margin-bottom: 64px;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 650px;
+      margin: 0 auto 32px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-green);
+      color: white;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+    }
+
+    /* Section Title */
+    .section-title {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 48px;
+    }
+
+    /* Step Grid */
+    .step {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+      margin-bottom: 64px;
+    }
+
+    .step.reverse .step-content {
+      order: 1;
+    }
+
+    .step.reverse .step-media {
+      order: 0;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .step-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .step-number.green { background: var(--accent-green); }
+    .step-number.blue { background: var(--accent-blue); }
+    .step-number.purple { background: var(--accent-purple); }
+    .step-number.orange { background: var(--accent-orange); }
+
+    .step-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .step-text {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .step-text strong {
+      color: var(--text-primary);
+    }
+
+    .step-example {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .step-example-label {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .step-example-label.green { color: var(--accent-green); }
+    .step-example-label.blue { color: var(--accent-blue); }
+    .step-example-label.purple { color: var(--accent-purple); }
+    .step-example-label.orange { color: var(--accent-orange); }
+
+    .step-example code {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: block;
+      line-height: 1.6;
+    }
+
+    .step-media {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 280px;
+    }
+
+    .step-media img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Quick Start */
+    .quickstart {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 64px;
+    }
+
+    .quickstart h2 {
+      font-size: 24px;
+      margin-bottom: 24px;
+    }
+
+    .quickstart-code {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 20px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+
+    .quickstart-code .comment {
+      color: #6a9955;
+    }
+
+    .quickstart-code .command {
+      color: var(--accent-green);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 40px 0;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .footer a {
+      color: var(--accent-green);
+      text-decoration: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .step {
+        grid-template-columns: 1fr;
+      }
+
+      .step.reverse .step-content,
+      .step.reverse .step-media {
+        order: unset;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🐕</span>
+        <span>Agent Chewy</span>
+      </div>
+      <a href="https://github.com/vthatikond-chwy/agent-chewy" class="github-link" target="_blank">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        View on GitHub
+      </a>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <h1>
+        Generate API tests from<br>
+        <span>natural language</span>
+      </h1>
+      <p>
+        Agent Chewy turns plain English into production-ready Cucumber/BDD API tests. 
+        Powered by a smart context library built from your actual service code.
+      </p>
+      <a href="https://github.com/vthatikond-chwy/agent-chewy#quick-start" class="btn-primary">
+        ✨ Get Started
+      </a>
+    </section>
+
+    <!-- How It Works -->
+    <h2 class="section-title">How it works</h2>
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number green">01</div>
+          <h3 class="step-title">Build context from source code</h3>
+        </div>
+        <p class="step-text">
+          <strong>What does this mean?</strong><br>
+          Instead of manually writing test cases, Agent Chewy reads your actual service code to understand how the API behaves. It learns the business rules, response codes, and edge cases directly from the source.
+        </p>
+        <p class="step-text">
+          <strong>How it works:</strong><br>
+          Point it at your service repository. Agent Chewy scans Java/TypeScript files, finds test data patterns, extracts validation logic, and builds a "context library"—a knowledge base about your API.
+        </p>
+        <div class="step-example">
+          <div class="step-example-label green">📌 Example</div>
+          <code>
+            $ npm run context:avs<br>
+            ✅ Scanned 247 source files<br>
+            ✅ Extracted 46 test data patterns<br>
+            ✅ Found 74 business rules<br>
+            ✅ Identified 5 response codes
+          </code>
+        </div>
+      </div>
+      <div class="step-media">
+        <img src="recordings/step1-context.gif" alt="Building context library">
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step reverse">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number blue">02</div>
+          <h3 class="step-title">Describe your test in plain English</h3>
+        </div>
+        <p class="step-text">
+          <strong>What does this mean?</strong><br>
+          No need to learn Cucumber syntax or write code. Just describe what you want to test like you're talking to a colleague. Agent Chewy understands your intent and generates the complete test.
+        </p>
+        <p class="step-text">
+          <strong>How it works:</strong><br>
+          Your plain English is matched against the context library. It finds the right test data, expected response code, and generates proper assertions—all without calling OpenAI (fast & free!).
+        </p>
+        <div class="step-example">
+          <div class="step-example-label blue">📌 Example</div>
+          <code>
+            You type: "Test missing postal code returns CORRECTED"<br><br>
+            Agent Chewy generates:<br>
+            • missing-postal-corrected.feature<br>
+            • missing-postal-corrected.steps.ts<br>
+            • Uses real test address with empty postal code<br>
+            • Expects responseCode = "CORRECTED"
+          </code>
+        </div>
+      </div>
+      <div class="step-media">
+        <img src="recordings/step2-nlp.gif" alt="NLP test generation">
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number purple">03</div>
+          <h3 class="step-title">Run tests & inspect results</h3>
+        </div>
+        <p class="step-text">
+          <strong>What does this mean?</strong><br>
+          Execute your generated tests against the real API with one click. See exactly what was sent, what came back, and whether assertions passed—full visibility into every API call.
+        </p>
+        <p class="step-text">
+          <strong>How it works:</strong><br>
+          Click ▶️ Run Test. Agent Chewy sends the request to your API, captures the response, validates against your Swagger schema, and logs everything to Reports.
+        </p>
+        <div class="step-example">
+          <div class="step-example-label purple">📌 Example Report</div>
+          <code>
+            📤 POST /avs/v1.0/verifyAddress<br>
+            {"streets":["123 Main St"],"city":"Boston"...}<br><br>
+            📥 Status: 200<br>
+            {"responseCode":"VERIFIED","validatedAddress":{...}}<br><br>
+            ✅ Schema validation passed<br>
+            ✅ All assertions passed (1.2s)
+          </code>
+        </div>
+      </div>
+      <div class="step-media">
+        <img src="recordings/step3-run.gif" alt="Running test & viewing report">
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step reverse">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number orange">04</div>
+          <h3 class="step-title">Self-healing context validation</h3>
+        </div>
+        <p class="step-text">
+          <strong>What does this mean?</strong><br>
+          APIs change over time. Instead of manually updating tests, Agent Chewy can detect when your context library is out of sync with the real API and automatically fix it.
+        </p>
+        <p class="step-text">
+          <strong>How it works:</strong><br>
+          Run the validator. It calls the real API with test data for each response code, compares actual vs expected behavior, and updates your context library if there's a mismatch.
+        </p>
+        <div class="step-example">
+          <div class="step-example-label orange">📌 Example Auto-Fix</div>
+          <code>
+            Problem: Context says PREMISES_PARTIAL →<br>
+            validatedAddress = "populated"<br><br>
+            Reality: API returns validatedAddress = null<br><br>
+            ✅ Auto-fixed: Updated api-context.json
+          </code>
+        </div>
+      </div>
+      <div class="step-media">
+        <img src="recordings/step4-validate.gif" alt="Context validation & auto-fix">
+      </div>
+    </div>
+
+    <!-- Quick Start -->
+    <section class="quickstart">
+      <h2>🚀 Quick Start</h2>
+      <div class="quickstart-code">
+        <span class="comment"># Clone the repository</span><br>
+        <span class="command">git clone https://github.com/vthatikond-chwy/agent-chewy.git</span><br>
+        <span class="command">cd agent-chewy && npm install</span><br><br>
+        
+        <span class="comment"># Build context from your service (one-time)</span><br>
+        <span class="command">npm run context:avs</span><br><br>
+        
+        <span class="comment"># Generate & run a test from plain English</span><br>
+        <span class="command">npm run generate:avs "Test valid address returns VERIFIED"</span><br><br>
+        
+        <span class="comment"># Start the dashboard</span><br>
+        <span class="command">npm run dashboard</span>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        Built with ❤️ by <a href="https://github.com/vthatikond-chwy">vthatikond-chwy</a> | 
+        <a href="https://github.com/vthatikond-chwy/agent-chewy">GitHub</a>
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
