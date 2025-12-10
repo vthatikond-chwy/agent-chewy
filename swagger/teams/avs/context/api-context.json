@@ -1,565 +1,2685 @@
 {
-  "version": "2.0.0",
-  "lastUpdated": "2025-01-10T00:00:00.000Z",
+  "version": "3.0.0",
+  "lastUpdated": "2025-12-10T05:57:46.060Z",
   "team": "avs",
-  "sourceCodeAnalyzed": true,
-  "sourceRepo": "https://github.com/Chewy-Inc/avs-service",
   "domain": {
-    "serviceName": "Address Verification Service (AVS)",
-    "serviceDescription": "REST API for validating and correcting US postal addresses. Uses FedEx or Experian engines to verify addresses against USPS database.",
+    "serviceName": "AVS Service",
+    "serviceDescription": "Comprehensive context from full source code analysis",
     "businessRules": [
       {
-        "id": "br_verified",
-        "name": "VERIFIED Response",
-        "description": "Address is valid and complete. No significant corrections were needed.",
+        "id": "br_error_0",
+        "name": "Error: InvalidAddressException",
+        "description": "No addresses passed for validation",
         "impact": "high",
-        "codeReference": "AVSResponse.java:120 - responseCode = ResponseCode.VERIFIED",
         "testRecommendations": [
-          "Test with addresses from AVSTestAddresses.getVerified()",
-          "Verify validatedAddress is populated",
-          "Verify requestAddressSanitized is null",
-          "ZIP+4 being added still returns VERIFIED (not CORRECTED)"
+          "Test error condition: No addresses passed for validation"
         ]
       },
       {
-        "id": "br_corrected",
-        "name": "CORRECTED Response",
-        "description": "Address is valid but significant fields were corrected. Triggers: state changed, no postal code provided, ZIP first 5 digits changed, city changed (not standardized), street changed (not standardized).",
+        "id": "br_error_1",
+        "name": "Error: InvalidAddressException",
+        "description": "No strings found in list",
         "impact": "high",
-        "codeReference": "AVSResponse.java:84-123",
         "testRecommendations": [
-          "Test with missing state/province → CORRECTED",
-          "Test with empty postal code → CORRECTED",
-          "Test with wrong city name → CORRECTED",
-          "Test with missing city and state but valid ZIP → CORRECTED",
-          "Check postalChanged, cityChanged, stateProvinceChanged, streetChanged flags"
+          "Test error condition: No strings found in list"
         ]
       },
       {
-        "id": "br_verified_vs_corrected",
-        "name": "VERIFIED vs CORRECTED Logic",
-        "description": "Critical distinction: ZIP+4 addition and city/street STANDARDIZATION do NOT trigger CORRECTED. Only significant changes do.",
+        "id": "br_error_2",
+        "name": "Error: InvalidAddressException",
+        "description": "At least 1 street entry is required",
         "impact": "high",
-        "codeReference": "AVSResponse.java:113-119",
         "testRecommendations": [
-          "ZIP+4 added (94043 → 94043-1234) → still VERIFIED",
-          "City standardized (St Louis → Saint Louis) → still VERIFIED",
-          "Street standardized (Street → ST) → still VERIFIED",
-          "Missing postal code → CORRECTED",
-          "Different city name (not just standardized) → CORRECTED"
+          "Test error condition: At least 1 street entry is required"
         ]
       },
       {
-        "id": "br_street_partial",
-        "name": "STREET_PARTIAL Response",
-        "description": "Only the street name is verified, not the full premises. Typically when street number is missing.",
-        "impact": "medium",
-        "codeReference": "AVSTestAddresses.java:76-77",
-        "testRecommendations": [
-          "Test with street name only, no number (e.g., 'Dolores Dr' instead of '39 Dolores Dr')",
-          "Verify requestAddressSanitized is populated",
-          "Verify validatedAddress is null"
-        ]
-      },
-      {
-        "id": "br_premises_partial",
-        "name": "PREMISES_PARTIAL Response",
-        "description": "Street address is verified but apartment/unit number cannot be confirmed.",
-        "impact": "medium",
-        "codeReference": "AVSTestAddresses.java:72-74",
-        "testRecommendations": [
-          "Test with wrong unit number (e.g., 'unit 3' when actual is 'unit 2')",
-          "Test with apartment number that doesn't exist",
-          "Verify validatedAddress is populated"
-        ]
-      },
-      {
-        "id": "br_not_verified",
-        "name": "NOT_VERIFIED Response",
-        "description": "Address cannot be verified - invalid or non-existent. Common causes: wrong state for city, completely fake address, mismatched city/state/postal.",
+        "id": "br_corrected_3",
+        "name": "CORRECTED Trigger: State Changed",
+        "description": "When isStateProvinceChanged(, response becomes CORRECTED",
         "impact": "high",
-        "codeReference": "AVSTestAddresses.java:79-83",
         "testRecommendations": [
-          "Test with valid address but wrong state (e.g., Burlington MA address with state=ND)",
-          "Test with completely fake address (e.g., 'foo', 'Giberish', 'nb')",
-          "Test with mismatched city/state/postal combination",
-          "Verify validatedAddress is null",
-          "Verify requestAddressSanitized is populated"
+          "Test condition: isStateProvinceChanged("
         ]
       },
       {
-        "id": "br_bulk_limits",
-        "name": "Bulk Address Limits",
-        "description": "verifyBulkAddress has a maximum of 100 addresses per request. All addresses must be in the same country.",
-        "impact": "medium",
-        "codeReference": "AVSController.java:128-134",
+        "id": "br_corrected_4",
+        "name": "CORRECTED Trigger: Postal Code Changed",
+        "description": "When null == requestAddress.getPostalCode(, response becomes CORRECTED",
+        "impact": "high",
         "testRecommendations": [
-          "Test with exactly 100 addresses → should succeed",
-          "Test with 101 addresses → should fail with AVSRequestLimitExceeded",
-          "Test with empty array → should fail with InvalidAddressException"
+          "Test condition: null == requestAddress.getPostalCode("
+        ]
+      },
+      {
+        "id": "br_corrected_5",
+        "name": "CORRECTED Trigger: Postal Code Changed",
+        "description": "When !validatedAddress.getPostalCode(, response becomes CORRECTED",
+        "impact": "high",
+        "testRecommendations": [
+          "Test condition: !validatedAddress.getPostalCode("
+        ]
+      },
+      {
+        "id": "br_error_6",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid directional string array: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid directional string array: "
+        ]
+      },
+      {
+        "id": "br_error_7",
+        "name": "Error: IllegalStateException",
+        "description": "Unable to load '",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to load '"
+        ]
+      },
+      {
+        "id": "br_error_8",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid key/value string array: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid key/value string array: "
+        ]
+      },
+      {
+        "id": "br_error_9",
+        "name": "Error: IllegalStateException",
+        "description": "Unable to load '",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to load '"
+        ]
+      },
+      {
+        "id": "br_error_10",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid State,Alias,Name string: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid State,Alias,Name string: "
+        ]
+      },
+      {
+        "id": "br_error_11",
+        "name": "Error: AVSConfigurationException",
+        "description": "Error loading FedEx engine configuration",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error loading FedEx engine configuration"
+        ]
+      },
+      {
+        "id": "br_error_12",
+        "name": "Error: UnsupportedOperationException",
+        "description": "FedEx does not support this operation.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: FedEx does not support this operation."
+        ]
+      },
+      {
+        "id": "br_error_13",
+        "name": "Error: NullPointerException",
+        "description": "FedEx engine not supplied!",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: FedEx engine not supplied!"
+        ]
+      },
+      {
+        "id": "br_error_14",
+        "name": "Error: AVSException",
+        "description": "Failed to fetch access token.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to fetch access token."
+        ]
+      },
+      {
+        "id": "br_error_15",
+        "name": "Error: AVSException",
+        "description": "Failed to fetch access token.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to fetch access token."
+        ]
+      },
+      {
+        "id": "br_error_16",
+        "name": "Error: AVSException",
+        "description": "Failed to retrieve access token",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to retrieve access token"
+        ]
+      },
+      {
+        "id": "br_error_17",
+        "name": "Error: AVSConfigurationException",
+        "description": "No QAS Server specified",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: No QAS Server specified"
+        ]
+      },
+      {
+        "id": "br_error_18",
+        "name": "Error: AVSConfigurationException",
+        "description": "Invalid port specified, must be a number",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid port specified, must be a number"
+        ]
+      },
+      {
+        "id": "br_error_19",
+        "name": "Error: AVSConfigurationException",
+        "description": "Error loading QAS engine configurtion",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error loading QAS engine configurtion"
+        ]
+      },
+      {
+        "id": "br_error_20",
+        "name": "Error: AVSConfigurationException",
+        "description": "Unable to generate WSDL URL",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to generate WSDL URL"
+        ]
+      },
+      {
+        "id": "br_error_21",
+        "name": "Error: AVSException",
+        "description": "Can not convert empty address list",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Can not convert empty address list"
+        ]
+      },
+      {
+        "id": "br_error_22",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed while getting address",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed while getting address"
+        ]
+      },
+      {
+        "id": "br_error_23",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine while getting address",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine while getting address"
+        ]
+      },
+      {
+        "id": "br_error_24",
+        "name": "Error: AVSException",
+        "description": "QAS engine returned ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned "
+        ]
+      },
+      {
+        "id": "br_error_25",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid State for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid State for: "
+        ]
+      },
+      {
+        "id": "br_error_26",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid City for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid City for: "
+        ]
+      },
+      {
+        "id": "br_error_27",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid Postal for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid Postal for: "
+        ]
+      },
+      {
+        "id": "br_error_28",
+        "name": "Error: AVSException",
+        "description": "Engine returned no results",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Engine returned no results"
+        ]
+      },
+      {
+        "id": "br_error_29",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed"
+        ]
+      },
+      {
+        "id": "br_error_30",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine"
+        ]
+      },
+      {
+        "id": "br_error_31",
+        "name": "Error: AVSException",
+        "description": "Unexpected QAS error",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unexpected QAS error"
+        ]
+      },
+      {
+        "id": "br_error_32",
+        "name": "Error: AVSException",
+        "description": "QAS engine returned no results",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned no results"
+        ]
+      },
+      {
+        "id": "br_error_33",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed"
+        ]
+      },
+      {
+        "id": "br_error_34",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine"
+        ]
+      },
+      {
+        "id": "br_error_35",
+        "name": "Error: AVSException",
+        "description": "Unexpected QAS error",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unexpected QAS error"
+        ]
+      },
+      {
+        "id": "br_error_36",
+        "name": "Error: NullPointerException",
+        "description": "QAS engine not supplied!",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine not supplied!"
+        ]
+      },
+      {
+        "id": "br_error_37",
+        "name": "Error: InvalidAddressException",
+        "description": "No addresses passed for validation",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: No addresses passed for validation"
+        ]
+      },
+      {
+        "id": "br_error_38",
+        "name": "Error: InvalidAddressException",
+        "description": "No strings found in list",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: No strings found in list"
+        ]
+      },
+      {
+        "id": "br_error_39",
+        "name": "Error: InvalidAddressException",
+        "description": "At least 1 street entry is required",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: At least 1 street entry is required"
+        ]
+      },
+      {
+        "id": "br_corrected_40",
+        "name": "CORRECTED Trigger: State Changed",
+        "description": "When isStateProvinceChanged(, response becomes CORRECTED",
+        "impact": "high",
+        "testRecommendations": [
+          "Test condition: isStateProvinceChanged("
+        ]
+      },
+      {
+        "id": "br_corrected_41",
+        "name": "CORRECTED Trigger: Postal Code Changed",
+        "description": "When null == requestAddress.getPostalCode(, response becomes CORRECTED",
+        "impact": "high",
+        "testRecommendations": [
+          "Test condition: null == requestAddress.getPostalCode("
+        ]
+      },
+      {
+        "id": "br_corrected_42",
+        "name": "CORRECTED Trigger: Postal Code Changed",
+        "description": "When !validatedAddress.getPostalCode(, response becomes CORRECTED",
+        "impact": "high",
+        "testRecommendations": [
+          "Test condition: !validatedAddress.getPostalCode("
+        ]
+      },
+      {
+        "id": "br_error_43",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid directional string array: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid directional string array: "
+        ]
+      },
+      {
+        "id": "br_error_44",
+        "name": "Error: IllegalStateException",
+        "description": "Unable to load '",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to load '"
+        ]
+      },
+      {
+        "id": "br_error_45",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid key/value string array: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid key/value string array: "
+        ]
+      },
+      {
+        "id": "br_error_46",
+        "name": "Error: IllegalStateException",
+        "description": "Unable to load '",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to load '"
+        ]
+      },
+      {
+        "id": "br_error_47",
+        "name": "Error: IllegalStateException",
+        "description": "Invalid State,Alias,Name string: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid State,Alias,Name string: "
+        ]
+      },
+      {
+        "id": "br_error_48",
+        "name": "Error: AVSConfigurationException",
+        "description": "Error loading FedEx engine configuration",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error loading FedEx engine configuration"
+        ]
+      },
+      {
+        "id": "br_error_49",
+        "name": "Error: UnsupportedOperationException",
+        "description": "FedEx does not support this operation.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: FedEx does not support this operation."
+        ]
+      },
+      {
+        "id": "br_error_50",
+        "name": "Error: NullPointerException",
+        "description": "FedEx engine not supplied!",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: FedEx engine not supplied!"
+        ]
+      },
+      {
+        "id": "br_error_51",
+        "name": "Error: AVSException",
+        "description": "Failed to fetch access token.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to fetch access token."
+        ]
+      },
+      {
+        "id": "br_error_52",
+        "name": "Error: AVSException",
+        "description": "Failed to fetch access token.",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to fetch access token."
+        ]
+      },
+      {
+        "id": "br_error_53",
+        "name": "Error: AVSException",
+        "description": "Failed to retrieve access token",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Failed to retrieve access token"
+        ]
+      },
+      {
+        "id": "br_error_54",
+        "name": "Error: AVSConfigurationException",
+        "description": "No QAS Server specified",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: No QAS Server specified"
+        ]
+      },
+      {
+        "id": "br_error_55",
+        "name": "Error: AVSConfigurationException",
+        "description": "Invalid port specified, must be a number",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Invalid port specified, must be a number"
+        ]
+      },
+      {
+        "id": "br_error_56",
+        "name": "Error: AVSConfigurationException",
+        "description": "Error loading QAS engine configurtion",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error loading QAS engine configurtion"
+        ]
+      },
+      {
+        "id": "br_error_57",
+        "name": "Error: AVSConfigurationException",
+        "description": "Unable to generate WSDL URL",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unable to generate WSDL URL"
+        ]
+      },
+      {
+        "id": "br_error_58",
+        "name": "Error: AVSException",
+        "description": "Can not convert empty address list",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Can not convert empty address list"
+        ]
+      },
+      {
+        "id": "br_error_59",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed while getting address",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed while getting address"
+        ]
+      },
+      {
+        "id": "br_error_60",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine while getting address",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine while getting address"
+        ]
+      },
+      {
+        "id": "br_error_61",
+        "name": "Error: AVSException",
+        "description": "QAS engine returned ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned "
+        ]
+      },
+      {
+        "id": "br_error_62",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid State for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid State for: "
+        ]
+      },
+      {
+        "id": "br_error_63",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid City for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid City for: "
+        ]
+      },
+      {
+        "id": "br_error_64",
+        "name": "Error: InvalidAddressException",
+        "description": "QAS engine returned an invalid Postal for: ",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned an invalid Postal for: "
+        ]
+      },
+      {
+        "id": "br_error_65",
+        "name": "Error: AVSException",
+        "description": "Engine returned no results",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Engine returned no results"
+        ]
+      },
+      {
+        "id": "br_error_66",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed"
+        ]
+      },
+      {
+        "id": "br_error_67",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine"
+        ]
+      },
+      {
+        "id": "br_error_68",
+        "name": "Error: AVSException",
+        "description": "Unexpected QAS error",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unexpected QAS error"
+        ]
+      },
+      {
+        "id": "br_error_69",
+        "name": "Error: AVSException",
+        "description": "QAS engine returned no results",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine returned no results"
+        ]
+      },
+      {
+        "id": "br_error_70",
+        "name": "Error: AVSException",
+        "description": "QAS Engine failed",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS Engine failed"
+        ]
+      },
+      {
+        "id": "br_error_71",
+        "name": "Error: AVSException",
+        "description": "Error communicating with QAS Engine",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Error communicating with QAS Engine"
+        ]
+      },
+      {
+        "id": "br_error_72",
+        "name": "Error: AVSException",
+        "description": "Unexpected QAS error",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: Unexpected QAS error"
+        ]
+      },
+      {
+        "id": "br_error_73",
+        "name": "Error: NullPointerException",
+        "description": "QAS engine not supplied!",
+        "impact": "high",
+        "testRecommendations": [
+          "Test error condition: QAS engine not supplied!"
         ]
       }
     ],
-    "terminology": {
-      "responseCode": "VERIFIED, CORRECTED, STREET_PARTIAL, PREMISES_PARTIAL, NOT_VERIFIED",
-      "shippableResponseCode": "SHIPPABLE, NOT_SHIPPABLE, NOT_VALIDATED (validated against SRM)",
-      "engineResponseCode": "AVS_FEDEX or AVS_EXPERIAN",
-      "validatedAddress": "Populated when address is VERIFIED or CORRECTED",
-      "requestAddressSanitized": "Populated when address is STREET_PARTIAL, PREMISES_PARTIAL, or NOT_VERIFIED",
-      "standardized": "When city/street is abbreviated but semantically same (e.g., St → Street)",
-      "ZIP+4": "Extended ZIP code (e.g., 94043-1234), adding this does NOT make response CORRECTED"
-    },
+    "terminology": {},
     "edgeCases": [
       {
-        "name": "ZIP+4 Addition Only",
-        "description": "When only ZIP+4 is added (94043 → 94043-1234), response stays VERIFIED, not CORRECTED",
+        "name": "Handle 'St' variations",
+        "description": "Handle 'St' variations",
         "testData": {
-          "streets": ["12501 SW 50TH ST"],
-          "city": "Miramar",
-          "stateOrProvince": "FL",
-          "postalCode": "33027",
+          "streets": [
+            "215 Rouen Drive"
+          ],
+          "city": "St. Louis",
+          "stateOrProvince": "MO",
+          "postalCode": "63129",
           "country": "US"
         },
-        "expectedBehavior": "VERIFIED (ZIP becomes 33027-6604 but that's just +4)",
-        "priority": "high",
-        "codeReference": "AVSResponse.java:113-119, AVSResponseCorrectedTests.java:47-69"
+        "expectedBehavior": "Unknown",
+        "priority": "medium"
       },
       {
-        "name": "City Standardization",
-        "description": "City name change that's in validated_city_replacements.csv stays VERIFIED",
+        "name": "Handle 'St' variations",
+        "description": "Handle 'St' variations",
         "testData": {
-          "streets": ["40 Spruce Ln"],
-          "city": "Glenburn",
-          "stateOrProvince": "ME",
-          "postalCode": "04401",
+          "streets": [
+            "4924 Heim Drive"
+          ],
+          "city": "St Louis",
+          "stateOrProvince": "MO",
+          "postalCode": "63123",
           "country": "US"
         },
-        "expectedBehavior": "VERIFIED (city becomes BANGOR but it's in replacements file)",
-        "priority": "high",
-        "codeReference": "AVSResponseCorrectedTests.java:71-90"
+        "expectedBehavior": "Unknown",
+        "priority": "medium"
       },
       {
-        "name": "City Change Not Standardized",
-        "description": "City name change that's NOT in replacements file triggers CORRECTED",
+        "name": "Handle 'St' variations",
+        "description": "Handle 'St' variations",
         "testData": {
-          "streets": ["125 Washington St."],
-          "city": "Whitman",
-          "stateOrProvince": "MA",
-          "postalCode": "02332",
+          "streets": [
+            "7806 Gannon Ave"
+          ],
+          "city": "St .Louis",
+          "stateOrProvince": "MO",
+          "postalCode": "63130",
           "country": "US"
         },
-        "expectedBehavior": "CORRECTED (city becomes Duxbury, not in replacements)",
-        "priority": "high",
-        "codeReference": "AVSResponseCorrectedTests.java:25-45"
+        "expectedBehavior": "Unknown",
+        "priority": "medium"
       },
       {
-        "name": "Missing State But Valid ZIP",
-        "description": "Address with null state but valid ZIP gets corrected",
+        "name": "+4 portion of address is wrong, it should still be",
+        "description": "+4 portion of address is wrong, it should still be \"VERIFIED\"",
         "testData": {
-          "streets": ["39 Dolores Dr"],
-          "city": "Burlington",
-          "stateOrProvince": null,
-          "postalCode": "01803",
-          "country": "US"
-        },
-        "expectedBehavior": "CORRECTED with stateOrProvince filled in",
-        "priority": "high",
-        "codeReference": "AVSTestAddresses.java:63"
-      },
-      {
-        "name": "Missing City and State",
-        "description": "Address with only street and ZIP gets city and state corrected",
-        "testData": {
-          "streets": ["5006 Pico Blvd"],
-          "city": null,
-          "stateOrProvince": null,
-          "postalCode": "90019",
-          "country": "US"
-        },
-        "expectedBehavior": "CORRECTED with city and state filled in",
-        "priority": "high",
-        "codeReference": "AVSTestAddresses.java:65"
-      },
-      {
-        "name": "Street Number Missing",
-        "description": "Street name without number returns STREET_PARTIAL",
-        "testData": {
-          "streets": ["Dolores Dr"],
-          "city": "Burlington",
-          "stateOrProvince": "MA",
-          "postalCode": "01803",
-          "country": "US"
-        },
-        "expectedBehavior": "STREET_PARTIAL",
-        "priority": "medium",
-        "codeReference": "AVSTestAddresses.java:76"
-      },
-      {
-        "name": "Wrong Unit Number",
-        "description": "Correct street but wrong apartment/unit number returns PREMISES_PARTIAL",
-        "testData": {
-          "streets": ["5 Goldfinch rd", "unit 3"],
-          "city": "Lincoln",
+          "streets": [
+            "32 Kingsbury St"
+          ],
+          "city": "Derry",
           "stateOrProvince": "NH",
-          "postalCode": "03251",
+          "postalCode": "03038-1654",
           "country": "US"
         },
-        "expectedBehavior": "PREMISES_PARTIAL (actual unit is 'unit 2')",
-        "priority": "medium",
-        "codeReference": "AVSTestAddresses.java:72"
-      },
-      {
-        "name": "Valid Address Wrong State",
-        "description": "Valid address with completely wrong state returns NOT_VERIFIED",
-        "testData": {
-          "streets": ["39 Dolores Dr"],
-          "city": "Burlington",
-          "stateOrProvince": "ND",
-          "postalCode": null,
-          "country": "US"
-        },
-        "expectedBehavior": "NOT_VERIFIED (Burlington is in MA, not ND)",
-        "priority": "high",
-        "codeReference": "AVSTestAddresses.java:80"
-      },
-      {
-        "name": "Completely Fake Address",
-        "description": "Nonsense address returns NOT_VERIFIED",
-        "testData": {
-          "streets": ["foo"],
-          "city": "Giberish",
-          "stateOrProvince": "NB",
-          "postalCode": "03251",
-          "country": "US"
-        },
-        "expectedBehavior": "NOT_VERIFIED",
-        "priority": "high",
-        "codeReference": "AVSTestAddresses.java:81"
-      },
-      {
-        "name": "Street Abbreviation Variations",
-        "description": "Various street abbreviation formats are handled (S.E. → SE, Pointe → PT)",
-        "testData": {
-          "streets": ["800 S.E. 4th Street"],
-          "city": "Ft Lauderdale",
-          "stateOrProvince": "FL",
-          "postalCode": "33301",
-          "country": "US"
-        },
-        "expectedBehavior": "VERIFIED (standardized to SE 4TH ST)",
-        "priority": "medium",
-        "codeReference": "AVSTestAddresses.java:48"
+        "expectedBehavior": "VERIFIED",
+        "priority": "medium"
       }
     ],
-    "securityConsiderations": [
-      {
-        "name": "Bulk Request Limit",
-        "description": "verifyBulkAddress throws AVSRequestLimitExceeded if > 100 addresses",
-        "testApproach": "Test with 101 addresses, expect error response"
-      },
-      {
-        "name": "Empty Request Handling",
-        "description": "verifyBulkAddress throws InvalidAddressException for empty array",
-        "testApproach": "Test with empty array, expect 400 error"
-      }
-    ]
+    "securityConsiderations": []
   },
   "endpoints": [
     {
       "path": "/avs/v1.0/verifyAddress",
       "method": "POST",
-      "description": "Validates a single address and returns verification result",
-      "requiredFields": ["streets"],
-      "optionalFields": ["city", "stateOrProvince", "postalCode", "country", "addressType"],
-      "requestSchema": {
-        "streets": { "field": "streets", "type": "array", "required": true, "description": "Street lines (at least 1)" },
-        "city": { "field": "city", "type": "string", "required": false, "description": "City name" },
-        "stateOrProvince": { "field": "stateOrProvince", "type": "string", "required": false, "description": "State code (2 letters)" },
-        "postalCode": { "field": "postalCode", "type": "string", "required": false, "description": "ZIP code" },
-        "country": { "field": "country", "type": "string", "required": false, "description": "Country code (defaults to US)" }
-      },
+      "description": "Address verification endpoint",
+      "requiredFields": [
+        "streets"
+      ],
+      "optionalFields": [
+        "city",
+        "stateOrProvince",
+        "postalCode",
+        "country"
+      ],
+      "requestSchema": {},
       "responseCodeBehaviors": [
         {
           "code": "VERIFIED",
-          "description": "Address valid, no significant corrections. ZIP+4 addition or standardization still returns VERIFIED.",
+          "description": "Address is valid and complete",
           "validatedAddressState": "populated",
           "sanitizedAddressState": "null",
-          "triggers": ["Valid complete address", "Only ZIP+4 added", "City/street standardized"],
-          "testScenarios": ["Verify complete valid address returns VERIFIED", "Verify ZIP+4 addition still returns VERIFIED"]
+          "triggers": [
+            "Valid complete address",
+            "ZIP+4 addition only",
+            "City/street standardization"
+          ],
+          "testScenarios": [
+            "Verify valid address",
+            "Test ZIP+4 still returns VERIFIED"
+          ]
         },
         {
           "code": "CORRECTED",
-          "description": "Address valid but significant corrections made: state changed, empty postal filled, ZIP first 5 changed, city/street changed (not just standardized).",
+          "description": "Address valid but fields were corrected",
           "validatedAddressState": "populated",
           "sanitizedAddressState": "null",
-          "triggers": ["Empty postal code", "Missing state", "City changed (not standardized)", "ZIP code first 5 digits changed", "State changed"],
-          "testScenarios": ["Verify empty postal code returns CORRECTED", "Verify missing state returns CORRECTED"]
-        },
-        {
-          "code": "STREET_PARTIAL",
-          "description": "Only street name verified, not full premises (e.g., missing street number)",
-          "validatedAddressState": "null",
-          "sanitizedAddressState": "populated",
-          "triggers": ["Street name only (no number)", "Street number doesn't exist"],
-          "testScenarios": ["Verify street without number returns STREET_PARTIAL"]
-        },
-        {
-          "code": "PREMISES_PARTIAL",
-          "description": "Street verified but unit/apartment number cannot be confirmed",
-          "validatedAddressState": "populated",
-          "sanitizedAddressState": "null",
-          "triggers": ["Wrong unit number", "Unit number doesn't exist"],
-          "testScenarios": ["Verify wrong unit number returns PREMISES_PARTIAL"]
+          "triggers": [
+            "When isStateProvinceChanged(, response becomes COR",
+            "When null == requestAddress.getPostalCode(, respon",
+            "When !validatedAddress.getPostalCode(, response be",
+            "When isStateProvinceChanged(, response becomes COR",
+            "When null == requestAddress.getPostalCode(, respon",
+            "When !validatedAddress.getPostalCode(, response be"
+          ],
+          "testScenarios": [
+            "Test missing postal",
+            "Test wrong city"
+          ]
         },
         {
           "code": "NOT_VERIFIED",
-          "description": "Address cannot be verified - invalid or non-existent",
+          "description": "Address cannot be verified",
           "validatedAddressState": "null",
           "sanitizedAddressState": "populated",
-          "triggers": ["Wrong state for city", "Fake address", "Mismatched city/state/postal"],
-          "testScenarios": ["Verify fake address returns NOT_VERIFIED", "Verify wrong state returns NOT_VERIFIED"]
+          "triggers": [
+            "Invalid address",
+            "Wrong state",
+            "Fake address"
+          ],
+          "testScenarios": [
+            "Test fake address",
+            "Test mismatched city/state"
+          ]
+        },
+        {
+          "code": "STREET_PARTIAL",
+          "description": "Only street name verified",
+          "validatedAddressState": "null",
+          "sanitizedAddressState": "populated",
+          "triggers": [
+            "Street name without number"
+          ],
+          "testScenarios": [
+            "Test street without number"
+          ]
+        },
+        {
+          "code": "PREMISES_PARTIAL",
+          "description": "Partial premises verification",
+          "validatedAddressState": "populated",
+          "sanitizedAddressState": "null",
+          "triggers": [
+            "Wrong unit number"
+          ],
+          "testScenarios": [
+            "Test wrong apartment number"
+          ]
         }
       ],
       "testPatterns": [
         {
-          "name": "Valid Complete Address (from source tests)",
-          "description": "Known verified address from AVSTestAddresses.java",
+          "name": "Verified Address 1",
+          "description": "Known verified address from source tests",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+          "data": {
+            "streets": [
+              "39 Dolores Dr"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "01803",
+            "country": "US"
+          },
           "expectedResponseCode": "VERIFIED",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals VERIFIED", "validatedAddress is not null", "requestAddressSanitized is null"]
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
         },
         {
-          "name": "Address with California (from source tests)",
-          "description": "LA address from AVSTestAddresses",
+          "name": "Verified Address 2",
+          "description": "Known verified address from source tests",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["3939 Tracy St"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90027", "country": "US" },
+          "data": {
+            "streets": [
+              "15 Sylvester rd"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "01803",
+            "country": "US"
+          },
           "expectedResponseCode": "VERIFIED",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals VERIFIED", "validatedAddress is not null"]
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
         },
         {
-          "name": "Missing State - CORRECTED",
-          "description": "Address with null state from AVSTestAddresses",
+          "name": "Verified Address 3",
+          "description": "Known verified address from source tests",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "", "postalCode": "01803", "country": "US" },
+          "data": {
+            "streets": [
+              "5 Goldfinch rd",
+              "unit 2"
+            ],
+            "city": "Lincoln",
+            "stateOrProvince": "nh",
+            "postalCode": "03251",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 4",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "3939 Tracy St"
+            ],
+            "city": "Los Angeles",
+            "stateOrProvince": "ca",
+            "postalCode": "90027",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 5",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "5006 W Pico Blvd"
+            ],
+            "city": "Los Angeles",
+            "stateOrProvince": "ca",
+            "postalCode": "90019",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 6",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "20307 Mountain Hwy E"
+            ],
+            "city": "Spanaway",
+            "stateOrProvince": "wa",
+            "postalCode": "98387",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 7",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "114 Railroad Ave"
+            ],
+            "city": "Cloverdale",
+            "stateOrProvince": "ca",
+            "postalCode": "95425",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 8",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "5309 Sunrise Blvd"
+            ],
+            "city": "Fair Oaks",
+            "stateOrProvince": "ca",
+            "postalCode": "95628",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 9",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "6720 NE 84th St"
+            ],
+            "city": "Vancouver",
+            "stateOrProvince": "wa",
+            "postalCode": "98665",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 10",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "795 W 5th St"
+            ],
+            "city": "San Bernardino",
+            "stateOrProvince": "ca",
+            "postalCode": "92410",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 11",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "32225 Temecula Pkwy"
+            ],
+            "city": "Temecula",
+            "stateOrProvince": "ca",
+            "postalCode": "92592",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 12",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "1250 Olympic Pkwy"
+            ],
+            "city": "Chula Vista",
+            "stateOrProvince": "ca",
+            "postalCode": "91913",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 13",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "7032 Purple Ridge Dr"
+            ],
+            "city": "Rancho Palos Verdes",
+            "stateOrProvince": "ca",
+            "postalCode": "90275",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 14",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "2605 Lake Ave"
+            ],
+            "city": "Altadena",
+            "stateOrProvince": "ca",
+            "postalCode": "91001",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 15",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "3141 E Coast Hwy"
+            ],
+            "city": "Corona Del Mar",
+            "stateOrProvince": "CA",
+            "postalCode": "92625",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 16",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "11896 Amargosa Rd"
+            ],
+            "city": "Victorville",
+            "stateOrProvince": "ca",
+            "postalCode": "92392",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 17",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "32 Kingsbury St"
+            ],
+            "city": "Derry",
+            "stateOrProvince": "NH",
+            "postalCode": "03038-1653",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 18 - Handle 'St' variations",
+          "description": "Handle 'St' variations",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "215 Rouen Drive"
+            ],
+            "city": "St. Louis",
+            "stateOrProvince": "MO",
+            "postalCode": "63129",
+            "country": "US",
+            "note": "Handle 'St' variations"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 19 - Handle 'St' variations",
+          "description": "Handle 'St' variations",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "4924 Heim Drive"
+            ],
+            "city": "St Louis",
+            "stateOrProvince": "MO",
+            "postalCode": "63123",
+            "country": "US",
+            "note": "Handle 'St' variations"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 20 - Handle 'St' variations",
+          "description": "Handle 'St' variations",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "7806 Gannon Ave"
+            ],
+            "city": "St .Louis",
+            "stateOrProvince": "MO",
+            "postalCode": "63130",
+            "country": "US",
+            "note": "Handle 'St' variations"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 21 - S.E. becomes SE",
+          "description": "S.E. becomes SE",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "800 S.E. 4th Street",
+              "Apt 304"
+            ],
+            "city": "Ft Lauderdale",
+            "stateOrProvince": "FL",
+            "postalCode": "33301",
+            "country": "US",
+            "note": "S.E. becomes SE"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 22 - Pointe becomes PT",
+          "description": "Pointe becomes PT",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "5120 oak chase pointe NE"
+            ],
+            "city": "Roswell",
+            "stateOrProvince": "GA",
+            "postalCode": "30075",
+            "country": "US",
+            "note": "Pointe becomes PT"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 23 - Missing AVE",
+          "description": "Missing AVE",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "855 17th"
+            ],
+            "city": "Santa Cruz",
+            "stateOrProvince": "ca",
+            "postalCode": "95062",
+            "country": "US",
+            "note": "Missing AVE"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 24 - Place becomes PL and West becomes W",
+          "description": "Place becomes PL and West becomes W",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "204 Dartmouth Place West"
+            ],
+            "city": "Peachtree City",
+            "stateOrProvince": "GA",
+            "postalCode": "30269",
+            "country": "US",
+            "note": "Place becomes PL and West becomes W"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 25 - City name changes but is still valid",
+          "description": "City name changes but is still valid",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "8241 S. Fillmore Cir."
+            ],
+            "city": "Centennial",
+            "stateOrProvince": "co",
+            "postalCode": "80122",
+            "country": "US",
+            "note": "City name changes but is still valid"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 26 - Street name is actually 'Meadow Lark Lane\"",
+          "description": "Street name is actually 'Meadow Lark Lane\"",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "7708 W Meadowlark Lane"
+            ],
+            "city": "Rathdrum",
+            "stateOrProvince": "id",
+            "postalCode": "83858",
+            "country": "US",
+            "note": "Street name is actually 'Meadow Lark Lane\""
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 27 - Street is actually \"N 51st St\"",
+          "description": "Street is actually \"N 51st St\"",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "11317 n51st St",
+              "107"
+            ],
+            "city": "Tampa",
+            "stateOrProvince": "FL",
+            "postalCode": "33617",
+            "country": "US",
+            "note": "Street is actually \"N 51st St\""
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 28",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "39 Dolores Dr"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ND",
+            "postalCode": "",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 29",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "foo"
+            ],
+            "city": "Giberish",
+            "stateOrProvince": "nb",
+            "postalCode": "03251",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 30",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "3 Corona Del Mar"
+            ],
+            "city": "Corona Del",
+            "stateOrProvince": "la",
+            "postalCode": "",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 31",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "194 Henson Hl"
+            ],
+            "city": "West Liberty",
+            "stateOrProvince": "KY",
+            "postalCode": "41472",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 32",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "Sylvester rd"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "00501",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 33",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "123 Example Lane"
+            ],
+            "city": "Saco",
+            "stateOrProvince": "ME",
+            "postalCode": "04072",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Verified Address 34",
+          "description": "Known verified address from source tests",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "123 EXAMPLE LN"
+            ],
+            "city": "Saco",
+            "stateOrProvince": "ME",
+            "postalCode": "04072",
+            "country": "US"
+          },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals VERIFIED",
+            "validatedAddress is not null",
+            "requestAddressSanitized is null"
+          ]
+        },
+        {
+          "name": "Corrected Address 1",
+          "description": "Address that gets corrected",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "39 Dolores Dr"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "",
+            "postalCode": "01803",
+            "country": "US"
+          },
           "expectedResponseCode": "CORRECTED",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "stateProvinceChanged equals true"]
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
         },
         {
-          "name": "Missing City and State - CORRECTED",
-          "description": "Only street and ZIP from AVSTestAddresses",
+          "name": "Corrected Address 2",
+          "description": "Address that gets corrected",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["5006 Pico Blvd"], "city": "", "stateOrProvince": "", "postalCode": "90019", "country": "US" },
+          "data": {
+            "streets": [
+              "15 Sylvester dr"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "01803",
+            "country": "US"
+          },
           "expectedResponseCode": "CORRECTED",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "cityChanged equals true"]
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
         },
         {
-          "name": "Missing Postal Code - CORRECTED",
-          "description": "Address without ZIP from AVSTestAddresses",
+          "name": "Corrected Address 3",
+          "description": "Address that gets corrected",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "", "country": "US" },
+          "data": {
+            "streets": [
+              "5006 Pico Blvd"
+            ],
+            "city": "",
+            "stateOrProvince": "",
+            "postalCode": "90019",
+            "country": "US"
+          },
           "expectedResponseCode": "CORRECTED",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "postalChanged equals true"]
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
         },
         {
-          "name": "Street Only No Number - STREET_PARTIAL",
-          "description": "Street name without number from AVSTestAddresses",
+          "name": "Corrected Address 4",
+          "description": "Address that gets corrected",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+          "data": {
+            "streets": [
+              "5309 Sunrise Blvd"
+            ],
+            "city": "",
+            "stateOrProvince": "",
+            "postalCode": "95628",
+            "country": "US"
+          },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
+        },
+        {
+          "name": "Corrected Address 5",
+          "description": "Address that gets corrected",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "114 Railroad Ave"
+            ],
+            "city": "Cloverdale",
+            "stateOrProvince": "ca",
+            "postalCode": "",
+            "country": "US"
+          },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
+        },
+        {
+          "name": "Corrected Address 6",
+          "description": "Address that gets corrected",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "32225 Temecula Pkwy"
+            ],
+            "city": "Temecula",
+            "stateOrProvince": "ca",
+            "postalCode": "",
+            "country": "US"
+          },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
+        },
+        {
+          "name": "Corrected Address 7",
+          "description": "Address that gets corrected",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "32 Kingsbury St."
+            ],
+            "city": "",
+            "stateOrProvince": "",
+            "postalCode": "03038",
+            "country": "US"
+          },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
+        },
+        {
+          "name": "Corrected Address 8 - +4 portion of address is wrong, it should still be \"VERIFIED\"",
+          "description": "+4 portion of address is wrong, it should still be \"VERIFIED\"",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "32 Kingsbury St"
+            ],
+            "city": "Derry",
+            "stateOrProvince": "NH",
+            "postalCode": "03038-1654",
+            "country": "US",
+            "note": "+4 portion of address is wrong, it should still be \"VERIFIED\""
+          },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals CORRECTED",
+            "validatedAddress is not null"
+          ]
+        },
+        {
+          "name": "Street Partial 1",
+          "description": "Street name only verified",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "Dolores Dr"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "01803",
+            "country": "US"
+          },
           "expectedResponseCode": "STREET_PARTIAL",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals STREET_PARTIAL", "validatedAddress is null", "requestAddressSanitized is not null"]
+          "assertions": [
+            "responseCode equals STREET_PARTIAL",
+            "validatedAddress is null"
+          ]
         },
         {
-          "name": "Wrong Unit Number - PREMISES_PARTIAL",
-          "description": "Correct street but wrong unit from AVSTestAddresses",
+          "name": "Street Partial 2",
+          "description": "Street name only verified",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["5 Goldfinch rd", "unit 3"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US" },
+          "data": {
+            "streets": [
+              "Sylvester rd"
+            ],
+            "city": "Burlington",
+            "stateOrProvince": "ma",
+            "postalCode": "01803",
+            "country": "US"
+          },
+          "expectedResponseCode": "STREET_PARTIAL",
+          "expectedHttpStatus": 200,
+          "assertions": [
+            "responseCode equals STREET_PARTIAL",
+            "validatedAddress is null"
+          ]
+        },
+        {
+          "name": "Premises Partial 1",
+          "description": "Partial premises verification",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": {
+            "streets": [
+              "5 Goldfinch rd",
+              "unit 3"
+            ],
+            "city": "Lincoln",
+            "stateOrProvince": "nh",
+            "postalCode": "03251",
+            "country": "US"
+          },
           "expectedResponseCode": "PREMISES_PARTIAL",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals PREMISES_PARTIAL", "validatedAddress is not null"]
+          "assertions": [
+            "responseCode equals PREMISES_PARTIAL",
+            "validatedAddress is not null"
+          ]
         },
         {
-          "name": "Wrong State - NOT_VERIFIED",
-          "description": "Valid address but wrong state from AVSTestAddresses",
+          "name": "Premises Partial 2",
+          "description": "Partial premises verification",
           "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "ND", "postalCode": "", "country": "US" },
-          "expectedResponseCode": "NOT_VERIFIED",
+          "data": {
+            "streets": [
+              "19 central st",
+              "54"
+            ],
+            "city": "Somerville",
+            "stateOrProvince": "ma",
+            "postalCode": "02144",
+            "country": "US"
+          },
+          "expectedResponseCode": "PREMISES_PARTIAL",
           "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals NOT_VERIFIED", "validatedAddress is null", "requestAddressSanitized is not null"]
-        },
-        {
-          "name": "Completely Fake Address - NOT_VERIFIED",
-          "description": "Nonsense address from AVSTestAddresses",
-          "endpoint": "/avs/v1.0/verifyAddress",
-          "data": { "streets": ["foo"], "city": "Giberish", "stateOrProvince": "NB", "postalCode": "03251", "country": "US" },
-          "expectedResponseCode": "NOT_VERIFIED",
-          "expectedHttpStatus": 200,
-          "assertions": ["responseCode equals NOT_VERIFIED", "validatedAddress is null", "requestAddressSanitized is not null"]
+          "assertions": [
+            "responseCode equals PREMISES_PARTIAL",
+            "validatedAddress is not null"
+          ]
         }
       ],
       "assertionTemplates": [
         {
           "responseCode": "VERIFIED",
           "assertions": [
-            { "field": "responseCode", "condition": "equals", "expectedValue": "VERIFIED", "description": "Response code should be VERIFIED" },
-            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
-            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
-          ]
-        },
-        {
-          "responseCode": "CORRECTED",
-          "assertions": [
-            { "field": "responseCode", "condition": "equals", "expectedValue": "CORRECTED", "description": "Response code should be CORRECTED" },
-            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
-            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
-          ]
-        },
-        {
-          "responseCode": "STREET_PARTIAL",
-          "assertions": [
-            { "field": "responseCode", "condition": "equals", "expectedValue": "STREET_PARTIAL", "description": "Response code should be STREET_PARTIAL" },
-            { "field": "validatedAddress", "condition": "isNull", "description": "validatedAddress should be null" },
-            { "field": "requestAddressSanitized", "condition": "notNull", "description": "requestAddressSanitized should be populated" }
-          ]
-        },
-        {
-          "responseCode": "PREMISES_PARTIAL",
-          "assertions": [
-            { "field": "responseCode", "condition": "equals", "expectedValue": "PREMISES_PARTIAL", "description": "Response code should be PREMISES_PARTIAL" },
-            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
-            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
+            {
+              "field": "responseCode",
+              "condition": "equals",
+              "expectedValue": "VERIFIED",
+              "description": "Response code should be VERIFIED"
+            },
+            {
+              "field": "validatedAddress",
+              "condition": "notNull",
+              "description": "validatedAddress should be populated"
+            },
+            {
+              "field": "requestAddressSanitized",
+              "condition": "isNull",
+              "description": "requestAddressSanitized should be null"
+            }
           ]
         },
         {
           "responseCode": "NOT_VERIFIED",
           "assertions": [
-            { "field": "responseCode", "condition": "equals", "expectedValue": "NOT_VERIFIED", "description": "Response code should be NOT_VERIFIED" },
-            { "field": "validatedAddress", "condition": "isNull", "description": "validatedAddress should be null" },
-            { "field": "requestAddressSanitized", "condition": "notNull", "description": "requestAddressSanitized should be populated" }
+            {
+              "field": "responseCode",
+              "condition": "equals",
+              "expectedValue": "NOT_VERIFIED",
+              "description": "Response code should be NOT_VERIFIED"
+            },
+            {
+              "field": "validatedAddress",
+              "condition": "isNull",
+              "description": "validatedAddress should be null"
+            },
+            {
+              "field": "requestAddressSanitized",
+              "condition": "notNull",
+              "description": "requestAddressSanitized should be populated"
+            }
           ]
         }
       ],
       "commonErrors": [
-        { "name": "Empty Request Body", "httpStatus": 400, "cause": "Request body is empty or missing", "testData": {} },
-        { "name": "Missing Streets Field", "httpStatus": 400, "cause": "Required field streets is missing", "testData": { "city": "Burlington" } }
-      ]
-    },
-    {
-      "path": "/avs/v1.0/suggestAddresses",
-      "method": "POST",
-      "description": "Returns address suggestions for partial/invalid addresses",
-      "requiredFields": ["streets"],
-      "optionalFields": ["city", "stateOrProvince", "postalCode", "country"],
-      "requestSchema": {},
-      "responseCodeBehaviors": [],
-      "testPatterns": [
         {
-          "name": "Get Suggestions for Partial Address",
-          "description": "Partial street name",
-          "endpoint": "/avs/v1.0/suggestAddresses",
-          "data": { "streets": ["39 Dolores"], "city": "Burlington", "stateOrProvince": "MA", "country": "US" },
-          "expectedResponseCode": "N/A",
-          "expectedHttpStatus": 200,
-          "assertions": ["Response is array", "Array has at least one element"]
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "No addresses passed for validation",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "No strings found in list",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "At least 1 street entry is required",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid directional string array: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Unable to load '",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid key/value string array: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Unable to load '",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid State,Alias,Name string: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Error loading FedEx engine configuration",
+          "testData": {}
+        },
+        {
+          "name": "Error: UnsupportedOperationException",
+          "httpStatus": 500,
+          "cause": "FedEx does not support this operation.",
+          "testData": {}
+        },
+        {
+          "name": "Error: NullPointerException",
+          "httpStatus": 500,
+          "cause": "FedEx engine not supplied!",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to fetch access token.",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to fetch access token.",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to retrieve access token",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "No QAS Server specified",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Invalid port specified, must be a number",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Error loading QAS engine configurtion",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Unable to generate WSDL URL",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Can not convert empty address list",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed while getting address",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine while getting address",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid State for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid City for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid Postal for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Engine returned no results",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Unexpected QAS error",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned no results",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Unexpected QAS error",
+          "testData": {}
+        },
+        {
+          "name": "Error: NullPointerException",
+          "httpStatus": 500,
+          "cause": "QAS engine not supplied!",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "No addresses passed for validation",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "No strings found in list",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "At least 1 street entry is required",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid directional string array: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Unable to load '",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid key/value string array: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Unable to load '",
+          "testData": {}
+        },
+        {
+          "name": "Error: IllegalStateException",
+          "httpStatus": 500,
+          "cause": "Invalid State,Alias,Name string: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Error loading FedEx engine configuration",
+          "testData": {}
+        },
+        {
+          "name": "Error: UnsupportedOperationException",
+          "httpStatus": 500,
+          "cause": "FedEx does not support this operation.",
+          "testData": {}
+        },
+        {
+          "name": "Error: NullPointerException",
+          "httpStatus": 500,
+          "cause": "FedEx engine not supplied!",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to fetch access token.",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to fetch access token.",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Failed to retrieve access token",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "No QAS Server specified",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Invalid port specified, must be a number",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Error loading QAS engine configurtion",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSConfigurationException",
+          "httpStatus": 500,
+          "cause": "Unable to generate WSDL URL",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Can not convert empty address list",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed while getting address",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine while getting address",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid State for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid City for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: InvalidAddressException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned an invalid Postal for: ",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Engine returned no results",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Unexpected QAS error",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS engine returned no results",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "QAS Engine failed",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Error communicating with QAS Engine",
+          "testData": {}
+        },
+        {
+          "name": "Error: AVSException",
+          "httpStatus": 500,
+          "cause": "Unexpected QAS error",
+          "testData": {}
+        },
+        {
+          "name": "Error: NullPointerException",
+          "httpStatus": 500,
+          "cause": "QAS engine not supplied!",
+          "testData": {}
         }
-      ],
-      "assertionTemplates": [],
-      "commonErrors": []
-    },
-    {
-      "path": "/avs/v1.0/verifyBulkAddress",
-      "method": "POST",
-      "description": "Bulk validate up to 100 addresses. All must be same country.",
-      "requiredFields": ["addresses"],
-      "optionalFields": ["engine"],
-      "requestSchema": {},
-      "responseCodeBehaviors": [],
-      "testPatterns": [],
-      "assertionTemplates": [],
-      "commonErrors": [
-        { "name": "Exceed 100 Address Limit", "httpStatus": 500, "cause": "AVSRequestLimitExceeded - more than 100 addresses", "testData": "101 addresses" },
-        { "name": "Empty Address Array", "httpStatus": 500, "cause": "InvalidAddressException - no addresses passed", "testData": [] }
       ]
     }
   ],
   "globalTestData": {
     "validAddresses": [
-      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
-      { "streets": ["15 Sylvester rd"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
-      { "streets": ["5 Goldfinch rd", "unit 2"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US" },
-      { "streets": ["3939 Tracy St"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90027", "country": "US" },
-      { "streets": ["5006 W Pico Blvd"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90019", "country": "US" },
-      { "streets": ["20307 Mountain Hwy E"], "city": "Spanaway", "stateOrProvince": "WA", "postalCode": "98387", "country": "US" },
-      { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "95425", "country": "US" },
-      { "streets": ["32 Kingsbury St"], "city": "Derry", "stateOrProvince": "NH", "postalCode": "03038-1653", "country": "US" }
+      {
+        "streets": [
+          "39 Dolores Dr"
+        ],
+        "city": "Burlington",
+        "stateOrProvince": "ma",
+        "postalCode": "01803",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "15 Sylvester rd"
+        ],
+        "city": "Burlington",
+        "stateOrProvince": "ma",
+        "postalCode": "01803",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "5 Goldfinch rd",
+          "unit 2"
+        ],
+        "city": "Lincoln",
+        "stateOrProvince": "nh",
+        "postalCode": "03251",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "3939 Tracy St"
+        ],
+        "city": "Los Angeles",
+        "stateOrProvince": "ca",
+        "postalCode": "90027",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "5006 W Pico Blvd"
+        ],
+        "city": "Los Angeles",
+        "stateOrProvince": "ca",
+        "postalCode": "90019",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "20307 Mountain Hwy E"
+        ],
+        "city": "Spanaway",
+        "stateOrProvince": "wa",
+        "postalCode": "98387",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "114 Railroad Ave"
+        ],
+        "city": "Cloverdale",
+        "stateOrProvince": "ca",
+        "postalCode": "95425",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "5309 Sunrise Blvd"
+        ],
+        "city": "Fair Oaks",
+        "stateOrProvince": "ca",
+        "postalCode": "95628",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "6720 NE 84th St"
+        ],
+        "city": "Vancouver",
+        "stateOrProvince": "wa",
+        "postalCode": "98665",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "795 W 5th St"
+        ],
+        "city": "San Bernardino",
+        "stateOrProvince": "ca",
+        "postalCode": "92410",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "32225 Temecula Pkwy"
+        ],
+        "city": "Temecula",
+        "stateOrProvince": "ca",
+        "postalCode": "92592",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "1250 Olympic Pkwy"
+        ],
+        "city": "Chula Vista",
+        "stateOrProvince": "ca",
+        "postalCode": "91913",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "7032 Purple Ridge Dr"
+        ],
+        "city": "Rancho Palos Verdes",
+        "stateOrProvince": "ca",
+        "postalCode": "90275",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "2605 Lake Ave"
+        ],
+        "city": "Altadena",
+        "stateOrProvince": "ca",
+        "postalCode": "91001",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "3141 E Coast Hwy"
+        ],
+        "city": "Corona Del Mar",
+        "stateOrProvince": "CA",
+        "postalCode": "92625",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "11896 Amargosa Rd"
+        ],
+        "city": "Victorville",
+        "stateOrProvince": "ca",
+        "postalCode": "92392",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "32 Kingsbury St"
+        ],
+        "city": "Derry",
+        "stateOrProvince": "NH",
+        "postalCode": "03038-1653",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "215 Rouen Drive"
+        ],
+        "city": "St. Louis",
+        "stateOrProvince": "MO",
+        "postalCode": "63129",
+        "country": "US",
+        "note": "Handle 'St' variations"
+      },
+      {
+        "streets": [
+          "4924 Heim Drive"
+        ],
+        "city": "St Louis",
+        "stateOrProvince": "MO",
+        "postalCode": "63123",
+        "country": "US",
+        "note": "Handle 'St' variations"
+      },
+      {
+        "streets": [
+          "7806 Gannon Ave"
+        ],
+        "city": "St .Louis",
+        "stateOrProvince": "MO",
+        "postalCode": "63130",
+        "country": "US",
+        "note": "Handle 'St' variations"
+      },
+      {
+        "streets": [
+          "800 S.E. 4th Street",
+          "Apt 304"
+        ],
+        "city": "Ft Lauderdale",
+        "stateOrProvince": "FL",
+        "postalCode": "33301",
+        "country": "US",
+        "note": "S.E. becomes SE"
+      },
+      {
+        "streets": [
+          "5120 oak chase pointe NE"
+        ],
+        "city": "Roswell",
+        "stateOrProvince": "GA",
+        "postalCode": "30075",
+        "country": "US",
+        "note": "Pointe becomes PT"
+      },
+      {
+        "streets": [
+          "855 17th"
+        ],
+        "city": "Santa Cruz",
+        "stateOrProvince": "ca",
+        "postalCode": "95062",
+        "country": "US",
+        "note": "Missing AVE"
+      },
+      {
+        "streets": [
+          "204 Dartmouth Place West"
+        ],
+        "city": "Peachtree City",
+        "stateOrProvince": "GA",
+        "postalCode": "30269",
+        "country": "US",
+        "note": "Place becomes PL and West becomes W"
+      },
+      {
+        "streets": [
+          "8241 S. Fillmore Cir."
+        ],
+        "city": "Centennial",
+        "stateOrProvince": "co",
+        "postalCode": "80122",
+        "country": "US",
+        "note": "City name changes but is still valid"
+      },
+      {
+        "streets": [
+          "7708 W Meadowlark Lane"
+        ],
+        "city": "Rathdrum",
+        "stateOrProvince": "id",
+        "postalCode": "83858",
+        "country": "US",
+        "note": "Street name is actually 'Meadow Lark Lane\""
+      },
+      {
+        "streets": [
+          "11317 n51st St",
+          "107"
+        ],
+        "city": "Tampa",
+        "stateOrProvince": "FL",
+        "postalCode": "33617",
+        "country": "US",
+        "note": "Street is actually \"N 51st St\""
+      },
+      {
+        "streets": [
+          "39 Dolores Dr"
+        ],
+        "city": "Burlington",
+        "stateOrProvince": "ND",
+        "postalCode": "",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "foo"
+        ],
+        "city": "Giberish",
+        "stateOrProvince": "nb",
+        "postalCode": "03251",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "3 Corona Del Mar"
+        ],
+        "city": "Corona Del",
+        "stateOrProvince": "la",
+        "postalCode": "",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "194 Henson Hl"
+        ],
+        "city": "West Liberty",
+        "stateOrProvince": "KY",
+        "postalCode": "41472",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "Sylvester rd"
+        ],
+        "city": "Burlington",
+        "stateOrProvince": "ma",
+        "postalCode": "00501",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "123 Example Lane"
+        ],
+        "city": "Saco",
+        "stateOrProvince": "ME",
+        "postalCode": "04072",
+        "country": "US"
+      },
+      {
+        "streets": [
+          "123 EXAMPLE LN"
+        ],
+        "city": "Saco",
+        "stateOrProvince": "ME",
+        "postalCode": "04072",
+        "country": "US"
+      }
     ],
-    "correctedAddresses": [
-      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "", "postalCode": "01803", "country": "US", "note": "Missing state" },
-      { "streets": ["5006 Pico Blvd"], "city": "", "stateOrProvince": "", "postalCode": "90019", "country": "US", "note": "Missing city and state" },
-      { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "", "country": "US", "note": "Missing postal" },
-      { "streets": ["32225 Temecula Pkwy"], "city": "Temecula", "stateOrProvince": "CA", "postalCode": "", "country": "US", "note": "Missing postal" }
-    ],
-    "invalidAddresses": [
-      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "ND", "postalCode": "", "country": "US", "note": "Wrong state" },
-      { "streets": ["foo"], "city": "Giberish", "stateOrProvince": "NB", "postalCode": "03251", "country": "US", "note": "Fake address" },
-      { "streets": ["3 Corona Del Mar"], "city": "Corona Del", "stateOrProvince": "LA", "postalCode": "", "country": "US", "note": "Mismatched" }
-    ],
-    "streetPartialAddresses": [
-      { "streets": ["Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US", "note": "No street number" },
-      { "streets": ["Sylvester rd"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US", "note": "No street number" }
-    ],
-    "premisesPartialAddresses": [
-      { "streets": ["5 Goldfinch rd", "unit 3"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US", "note": "Wrong unit (actual is unit 2)" },
-      { "streets": ["19 central st", "54"], "city": "Somerville", "stateOrProvince": "MA", "postalCode": "02144", "country": "US", "note": "Unit doesn't exist" }
-    ],
+    "invalidAddresses": [],
     "boundaryData": []
   },
   "generationHints": [
     {
-      "category": "response_logic",
-      "hint": "VERIFIED stays VERIFIED if only ZIP+4 is added or city/street is standardized. CORRECTED only when significant change (missing postal, different city, state change).",
-      "example": "94043 → 94043-1234 is VERIFIED, not CORRECTED"
+      "category": "test_assertion",
+      "hint": "Test in AVSResponseCorrectedTests.java expects VERIFIED response",
+      "example": "assertEquals(VERIFIED, response.getResponseCode()"
     },
     {
-      "category": "response_validation",
-      "hint": "For VERIFIED/CORRECTED: validatedAddress populated, requestAddressSanitized null. For NOT_VERIFIED/STREET_PARTIAL: opposite.",
-      "example": "NOT_VERIFIED always has requestAddressSanitized populated"
+      "category": "validation",
+      "hint": "Validation in AVSController.java: if (addresses.isEmpty()",
+      "example": "if (addresses.isEmpty()"
     },
     {
-      "category": "test_data_source",
-      "hint": "Use test addresses from AVSTestAddresses.java - they are proven to work in real tests.",
-      "example": "39 Dolores Dr, Burlington, MA, 01803 → VERIFIED"
+      "category": "response_code_assignment",
+      "hint": "VERIFIED is assigned in AVSResponse.java",
+      "example": "                if (!validatedAddress.getPostalCode().equals(requestAddress.getPostalCode())) {\n    "
     },
     {
-      "category": "street_partial",
-      "hint": "STREET_PARTIAL typically happens when street number is missing, only street name provided.",
-      "example": "'Dolores Dr' instead of '39 Dolores Dr' → STREET_PARTIAL"
+      "category": "response_code_assignment",
+      "hint": "CORRECTED is assigned in AVSResponse.java",
+      "example": "                    responseModified = ZIP_4;\n                }\n                responseCode = Respo"
     },
     {
-      "category": "premises_partial",
-      "hint": "PREMISES_PARTIAL happens when unit/apartment number is wrong or doesn't exist.",
-      "example": "'unit 3' when actual is 'unit 2' → PREMISES_PARTIAL"
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (o == null",
+      "example": "if (o == null"
     },
     {
-      "category": "not_verified_triggers",
-      "hint": "NOT_VERIFIED commonly triggered by: wrong state for city, completely fake address, mismatched city/state/postal.",
-      "example": "Burlington address with state=ND instead of MA → NOT_VERIFIED"
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (a.isEmpty()",
+      "example": "if (a.isEmpty()"
     },
     {
-      "category": "bulk_limits",
-      "hint": "verifyBulkAddress has max 100 addresses per request, all must be same country.",
-      "example": "101 addresses → AVSRequestLimitExceeded error"
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (directionals.isEmpty()",
+      "example": "if (directionals.isEmpty()"
     },
     {
-      "category": "assertion_pattern",
-      "hint": "Always check change flags (postalChanged, cityChanged, etc.) when testing CORRECTED responses.",
-      "example": "Missing postal → CORRECTED with postalChanged=true"
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (directionals.isEmpty()",
+      "example": "if (directionals.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (streetAbbreviations.isEmpty()",
+      "example": "if (streetAbbreviations.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (streetAbbreviations.isEmpty()",
+      "example": "if (streetAbbreviations.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (cityReplacements.isEmpty()",
+      "example": "if (cityReplacements.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (cityReplacements.isEmpty()",
+      "example": "if (cityReplacements.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in EngineOrchestratorService.java: if (ret == null",
+      "example": "if (ret == null"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in FedExRestClient.java: if (response == null",
+      "example": "if (response == null"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in QASEngine.java: if (ret.isEmpty()",
+      "example": "if (ret.isEmpty()"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSController.java: if (addresses.isEmpty()",
+      "example": "if (addresses.isEmpty()"
+    },
+    {
+      "category": "response_code_assignment",
+      "hint": "VERIFIED is assigned in AVSResponse.java",
+      "example": "                if (!validatedAddress.getPostalCode().equals(requestAddress.getPostalCode())) {\n    "
+    },
+    {
+      "category": "response_code_assignment",
+      "hint": "CORRECTED is assigned in AVSResponse.java",
+      "example": "                    responseModified = ZIP_4;\n                }\n                responseCode = Respo"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (o == null",
+      "example": "if (o == null"
+    },
+    {
+      "category": "validation",
+      "hint": "Validation in AVSValidatedAddressAbbreviationCleaner.java: if (a.isEmpty()",
+      "example": "if (a.isEmpty()"
     }
   ]
 }

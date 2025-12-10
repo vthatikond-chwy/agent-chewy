@@ -1,33 +1,32 @@
 /**
- * Simplest possible usage example
+ * Example: Simple API Test Generation
+ * 
+ * Shows how to generate tests using the context-aware generator
  */
 
-import { generateApiTests } from '../src/api-generator/index.js';
+import { E2EApiTestFlow } from '../src/agents/api-agent/e2e-flow.js';
 
 async function main() {
-  // Just provide natural language and Swagger spec!
-  const result = await generateApiTests({
-    naturalLanguageInput: `
-      Test that:
-      1. Users can register with valid email and password
-      2. Users cannot register with invalid email format
-      3. Users cannot register with weak passwords
-      4. Users get proper error messages for validation failures
-    `,
-    swaggerSpecPath: './swagger.json'
+  const flow = new E2EApiTestFlow();
+
+  // Generate and run tests from natural language
+  const result = await flow.execute({
+    teamName: 'avs',
+    nlpInput: 'Verify a valid complete address returns VERIFIED response',
+    runTests: true
   });
 
   if (result.success) {
-    console.log('✅ Tests generated successfully!');
+    console.log('✅ Tests completed successfully!');
     console.log(`   Features: ${result.generatedFiles.features.length}`);
     console.log(`   Step Definitions: ${result.generatedFiles.stepDefinitions.length}`);
-  } else {
-    console.log('❌ Generation failed');
-    if (result.errors) {
-      console.log(result.errors);
+    if (result.testResults) {
+      console.log(`   Passed: ${result.testResults.passed}`);
+      console.log(`   Failed: ${result.testResults.failed}`);
     }
+  } else {
+    console.log('❌ Tests failed:', result.error);
   }
 }
 
 main();
-

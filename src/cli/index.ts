@@ -457,4 +457,139 @@ apiCommand
     }
   });
 
+// Context command - build context library from source code
+apiCommand
+  .command('context')
+  .description('Build context library from source code repository')
+  .requiredOption('-r, --repo <url>', 'GitHub repository URL (e.g., https://github.com/Chewy-Inc/avs-service)')
+  .requiredOption('-t, --team <name>', 'Team name (e.g., avs, kyrios)')
+  .option('--no-cleanup', 'Keep cloned repository after analysis')
+  .action(async (options: {
+    repo: string;
+    team: string;
+    cleanup?: boolean;
+  }) => {
+    try {
+      console.log('\n📚 Context Library Builder\n');
+      console.log(`Repository: ${options.repo}`);
+      console.log(`Team: ${options.team}`);
+      
+      const { SourceCodeAnalyzer } = await import('../agents/api-agent/context/source-analyzer.js');
+      const analyzer = new SourceCodeAnalyzer();
+      
+      const result = await analyzer.analyzeFromRepo({
+        repoUrl: options.repo,
+        teamName: options.team,
+        cleanup: options.cleanup !== false
+      });
+      
+      if (result.success && result.context) {
+        // Save the context
+        const contextPath = await analyzer.saveContext(result.context, options.team);
+        
+        console.log('\n✨ Context library built successfully!');
+        console.log(`\n📊 Summary:`);
+        console.log(`   Verified addresses: ${result.testAddresses?.verified.length || 0}`);
+        console.log(`   Corrected addresses: ${result.testAddresses?.corrected.length || 0}`);
+        console.log(`   NOT_VERIFIED addresses: ${result.testAddresses?.notVerified.length || 0}`);
+        console.log(`   Business rules: ${result.businessRules?.length || 0}`);
+        console.log(`\n📄 Context saved to: ${contextPath}`);
+        console.log('\n🚀 Now use this context when generating tests:');
+        console.log(`   npx tsx src/cli/index.ts api generate -i "Your test description"`);
+      } else {
+        console.error('\n❌ Failed to build context:', result.error);
+        process.exit(1);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+// Full Context Analysis command - comprehensive source code analysis
+apiCommand
+  .command('context-full')
+  .description('Build context library with FULL source code analysis (all tests, business logic, config)')
+  .requiredOption('-r, --repo <url>', 'GitHub repository URL')
+  .requiredOption('-t, --team <name>', 'Team name (e.g., avs, kyrios)')
+  .action(async (options: {
+    repo: string;
+    team: string;
+  }) => {
+    try {
+      const { FullSourceAnalyzer } = await import('../agents/api-agent/context/full-source-analyzer.js');
+      const analyzer = new FullSourceAnalyzer();
+      
+      const result = await analyzer.analyzeFullRepo(options.repo, options.team);
+      
+      if (result.success && result.context) {
+        const contextPath = await analyzer.saveContext(result.context, options.team);
+        console.log(`\n✅ Full context saved to: ${contextPath}`);
+        console.log('\n🚀 Now use this context when generating tests:');
+        console.log(`   npx tsx src/cli/index.ts api generate -i "Your test description"`);
+      } else {
+        console.error('\n❌ Failed:', result.error);
+        process.exit(1);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+// End-to-end test command - complete flow from NLP to test execution
+apiCommand
+  .command('test')
+  .description('End-to-end: Build context → Load schema → Process NLP → Generate tests → Run tests')
+  .requiredOption('-t, --team <name>', 'Team name (e.g., avs, kyrios)')
+  .requiredOption('-i, --input <text>', 'Natural language test description')
+  .option('-r, --repo <url>', 'GitHub repository URL (to rebuild context)')
+  .option('--rebuild-context', 'Force rebuild context from source code')
+  .option('--no-run', 'Generate tests but do not run them')
+  .option('-v, --verbose', 'Show detailed output')
+  .action(async (options: {
+    team: string;
+    input: string;
+    repo?: string;
+    rebuildContext?: boolean;
+    run?: boolean;
+    verbose?: boolean;
+  }) => {
+    try {
+      const { E2EApiTestFlow } = await import('../agents/api-agent/e2e-flow.js');
+      const flow = new E2EApiTestFlow();
+      
+      const result = await flow.execute({
+        teamName: options.team,
+        nlpInput: options.input,
+        repoUrl: options.repo,
+        rebuildContext: options.rebuildContext,
+        runTests: options.run !== false,
+        verbose: options.verbose
+      });
+      
+      if (!result.success) {
+        process.exit(1);
+      }
+      
+      // Show final summary
+      console.log('\n📊 SUMMARY');
+      console.log('-'.repeat(40));
+      for (const step of result.steps) {
+        const icon = step.status === 'success' ? '✅' : step.status === 'skipped' ? '⏭️' : '❌';
+        console.log(`   ${icon} ${step.step}: ${step.message}`);
+      }
+      
+      if (result.testResults) {
+        console.log(`\n🧪 Test Results: ${result.testResults.passed} passed, ${result.testResults.failed} failed`);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
 program.parse();

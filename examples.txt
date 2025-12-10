@@ -1,0 +1,14 @@
+# VERIFIED
+npx tsx src/cli/index.ts api test -t avs \
+  -i "Verify valid address returns VERIFIED"
+# ✅ 1 passed
+
+# CORRECTED  
+npx tsx src/cli/index.ts api test -t avs \
+  -i "Test address with missing state returns CORRECTED"
+# ✅ 1 passed
+
+# NOT_VERIFIED
+npx tsx src/cli/index.ts api test -t avs \
+  -i "Test fake address returns NOT_VERIFIED"
+# ✅ 1 passed
