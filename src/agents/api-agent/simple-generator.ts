@@ -425,8 +425,9 @@ Response Code Patterns:
 - PREMISES_PARTIAL: Returned when street address is partially verified (street exists but specific premises/number doesn't match exactly)
   Example: Valid street name but wrong street number → responseCode: "PREMISES_PARTIAL", validatedAddress populated with corrected number, streetChanged: true
   
-- STREET_PARTIAL: Returned when only the street name is verified but not the full address
-  Example: Street name exists but no specific address number → responseCode: "STREET_PARTIAL", validatedAddress populated with street-level validation
+- STREET_PARTIAL: Returned when only the street name is verified but not the full address (no specific premises)
+  Example: Street name exists but no specific address number → responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
+  Example: Wrong street number that doesn't exist → responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
 
 Field Change Indicators:
 When responseCode is "CORRECTED", check these boolean fields to see what was corrected:
@@ -436,8 +437,8 @@ When responseCode is "CORRECTED", check these boolean fields to see what was cor
 - streetChanged: true when street address was corrected
 
 Response Structure Indicators:
-- validatedAddress: Populated for VERIFIED, CORRECTED, PREMISES_PARTIAL, and STREET_PARTIAL; null for NOT_VERIFIED
-- requestAddressSanitized: null for VERIFIED, CORRECTED, PREMISES_PARTIAL, and STREET_PARTIAL; populated for NOT_VERIFIED (contains sanitized version of input)
+- validatedAddress: Populated for VERIFIED, CORRECTED, PREMISES_PARTIAL; null for STREET_PARTIAL and NOT_VERIFIED
+- requestAddressSanitized: null for VERIFIED, CORRECTED, PREMISES_PARTIAL; populated for STREET_PARTIAL and NOT_VERIFIED (contains sanitized version of input)
 
 Test Scenario Examples:
 1. Valid address with postal code:
@@ -452,13 +453,13 @@ Test Scenario Examples:
    - Input: { postalCode: "31005-5427", city: "Snoqualmie", stateOrProvince: "GA", streets: ["123 xyz street"], ... }
    - Expected: responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated (with sanitized streets like "123 XYZ ST")
 
-4. Partially verified premises (wrong street number):
+4. Wrong street number (street exists but number doesn't):
    - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["999 HARLAN CT"], ... }
-   - Expected: responseCode: "PREMISES_PARTIAL", validatedAddress populated with corrected number, streetChanged: true
+   - Expected: responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
 
-5. Partially verified street (street name only):
-   - Input: { postalCode: "31005", city: "Bonaire", stateOrProvince: "GA", streets: ["HARLAN CT"], ... }
-   - Expected: responseCode: "STREET_PARTIAL", validatedAddress populated with street-level validation
+5. Street name only (no number):
+   - Input: { postalCode: "31005-5427", city: "Bonaire", stateOrProvince: "GA", streets: ["HARLAN CT"], ... }
+   - Expected: responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
 
 When generating test scenarios:
 - For "valid address" or "complete address" scenarios → expect responseCode: "VERIFIED", validatedAddress populated, requestAddressSanitized: null
@@ -466,8 +467,8 @@ When generating test scenarios:
 - For "incorrect city" scenarios → expect responseCode: "CORRECTED" with cityChanged: true
 - For "incorrect state" scenarios → expect responseCode: "CORRECTED" with stateProvinceChanged: true
 - For "incorrect street" scenarios → expect responseCode: "CORRECTED" with streetChanged: true
-- For "wrong street number" or "incorrect premises" scenarios → expect responseCode: "PREMISES_PARTIAL", validatedAddress populated, streetChanged: true
-- For "street name only" or "partial street" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress populated
+- For "wrong street number" or "incorrect premises" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
+- For "street name only" or "partial street" scenarios → expect responseCode: "STREET_PARTIAL", validatedAddress: null, requestAddressSanitized populated
 - For "invalid address" or "mismatched address" or "non-existent address" scenarios → expect responseCode: "NOT_VERIFIED", validatedAddress: null, requestAddressSanitized populated
 - Always include assertions for responseCode AND the relevant change indicators (postalChanged, cityChanged, etc.) AND response structure (validatedAddress, requestAddressSanitized)
 `;
@@ -479,8 +480,12 @@ CRITICAL - Endpoint Selection Based on Swagger Spec:
 Use the Swagger endpoint summaries and descriptions to choose the CORRECT endpoint:
 ${endpointContext}
 
-For "validate" or "verification" scenarios, prefer endpoints with "validate" or "verify" in their summary/description.
-For "suggest" or "suggestion" scenarios, prefer endpoints with "suggest" in their summary/description.
+MANDATORY ENDPOINT RULES:
+- For STREET_PARTIAL, NOT_VERIFIED, VERIFIED, CORRECTED, PREMISES_PARTIAL response codes → use /avs/v1.0/verifyAddress
+- For "wrong street number", "street name only", "invalid address", "valid address" → use /avs/v1.0/verifyAddress
+- For "validate" or "verification" scenarios → use verifyAddress endpoint
+- For "suggest" or "suggestion" scenarios (when explicitly asking for suggestions) → use suggestAddresses endpoint
+- When in doubt, use verifyAddress for address validation scenarios
 
 ${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCount > 1 ? 's' : ''}. Do NOT generate more or less.` : 'Generate test scenarios based on the requirements.'}
 
@@ -540,7 +545,8 @@ ABSOLUTE REQUIREMENTS:
   ${expectedResponseCode === 'NOT_VERIFIED' ? '* validatedAddress should be null\n  * requestAddressSanitized should be populated' : ''}
   ${expectedResponseCode === 'VERIFIED' ? '* All change indicators (postalChanged, cityChanged, etc.) should be false\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
   ${expectedResponseCode === 'CORRECTED' ? '* Relevant change indicators should be true\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
-  ${expectedResponseCode === 'PREMISES_PARTIAL' || expectedResponseCode === 'STREET_PARTIAL' ? '* validatedAddress should be populated' : ''}
+  ${expectedResponseCode === 'PREMISES_PARTIAL' ? '* validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
+  ${expectedResponseCode === 'STREET_PARTIAL' ? '* validatedAddress should be null\n  * requestAddressSanitized should be populated' : ''}
 
 DO NOT DEVIATE FROM THIS EXPECTED RESPONSE CODE UNDER ANY CIRCUMSTANCES.
 `;
@@ -772,16 +778,18 @@ Feature: [Feature name]
 
 CRITICAL REQUIREMENTS:
 1. Use data tables for request bodies with multiple fields (like address fields)
-2. Make step text UNIQUE and SPECIFIC - include scenario context to avoid conflicts
+2. INCLUDE ALL FIELDS from the test data in the data table - streets, city, stateOrProvince, postalCode, country - DO NOT SKIP ANY FIELD
+3. Make step text UNIQUE and SPECIFIC - include scenario context to avoid conflicts
    - Example: "Given the API endpoint for ${scenarioName} test is {string}" instead of "Given the API endpoint is {string}"
    - Example: "When I send a POST request for ${scenarioName}" instead of "When I send a POST request"
    - Use "${scenarioName}" in step text to make it unique
    - EXCEPTION: Schema validation step is common and should NOT include scenario suffix
-3. Use clear, business-readable language
-4. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
-5. ALWAYS include schema validation step EXACTLY as: "And the response matches the expected schema" (NO scenario suffix) after the status code check
-${teamRules?.featureFileGeneration?.dataTableFormat?.note ? `6. ${teamRules.featureFileGeneration.dataTableFormat.note}` : ''}
-${teamRules?.featureFileGeneration?.criticalRules ? `\n${teamRules.featureFileGeneration.criticalRules.map((r: string, idx: number) => `${idx + 7}. ${r}`).join('\n')}` : ''}
+4. Use clear, business-readable language
+5. Include appropriate tags (@api, @positive, @negative, @boundary, @security)
+6. ALWAYS include schema validation step EXACTLY as: "And the response matches the expected schema" (NO scenario suffix) after the status code check
+7. For address validation scenarios, ALWAYS use endpoint /avs/v1.0/verifyAddress (NOT suggestAddresses)
+${teamRules?.featureFileGeneration?.dataTableFormat?.note ? `8. ${teamRules.featureFileGeneration.dataTableFormat.note}` : ''}
+${teamRules?.featureFileGeneration?.criticalRules ? `\n${teamRules.featureFileGeneration.criticalRules.map((r: string, idx: number) => `${idx + 9}. ${r}`).join('\n')}` : ''}
 
 IMPORTANT: The example data table above shows WORKING test data. You MUST use this exact data, not generic addresses.
 

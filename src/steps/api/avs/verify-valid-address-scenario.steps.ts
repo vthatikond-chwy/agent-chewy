@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-valid-complete-address-with-verified-response test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-valid-address-scenario test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +22,7 @@ Given('the API endpoint for verify-valid-complete-address-with-verified-response
   };
 });
 
-Given('the request body for verify-valid-complete-address-with-verified-response is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-valid-address-scenario is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -34,7 +34,7 @@ Given('the request body for verify-valid-complete-address-with-verified-response
   };
 });
 
-When('I send a POST request for verify-valid-complete-address-with-verified-response', async function (this: CustomWorld) {
+When('I send a POST request for verify-valid-address-scenario', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
@@ -47,34 +47,34 @@ When('I send a POST request for verify-valid-complete-address-with-verified-resp
   }
 });
 
-Then('the response status for verify-valid-complete-address-with-verified-response should be 200', function (this: CustomWorld) {
+Then('the response status for verify-valid-address-scenario should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-valid-complete-address-with-verified-response should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-valid-address-scenario should be {string}', function (this: CustomWorld, expectedCode: string) {
   expect(this.response?.data.responseCode).to.equal(expectedCode);
 });
 
-Then('the cityChanged field for verify-valid-complete-address-with-verified-response should be false', function (this: CustomWorld) {
+Then('the cityChanged field for verify-valid-address-scenario should be false', function (this: CustomWorld) {
   expect(this.response?.data.cityChanged).to.be.false;
 });
 
-Then('the postalChanged field for verify-valid-complete-address-with-verified-response should be false', function (this: CustomWorld) {
+Then('the postalChanged field for verify-valid-address-scenario should be false', function (this: CustomWorld) {
   expect(this.response?.data.postalChanged).to.be.false;
 });
 
-Then('the stateProvinceChanged field for verify-valid-complete-address-with-verified-response should be false', function (this: CustomWorld) {
+Then('the stateProvinceChanged field for verify-valid-address-scenario should be false', function (this: CustomWorld) {
   expect(this.response?.data.stateProvinceChanged).to.be.false;
 });
 
-Then('the streetChanged field for verify-valid-complete-address-with-verified-response should be false', function (this: CustomWorld) {
+Then('the streetChanged field for verify-valid-address-scenario should be false', function (this: CustomWorld) {
   expect(this.response?.data.streetChanged).to.be.false;
 });
 
-Then('the validatedAddress should be populated for verify-valid-complete-address-with-verified-response', function (this: CustomWorld) {
+Then('the validatedAddress should be populated for verify-valid-address-scenario', function (this: CustomWorld) {
   expect(this.response?.data.validatedAddress).to.not.be.null;
 });
 
-Then('the requestAddressSanitized should be null for verify-valid-complete-address-with-verified-response', function (this: CustomWorld) {
+Then('the requestAddressSanitized should be null for verify-valid-address-scenario', function (this: CustomWorld) {
   expect(this.response?.data.requestAddressSanitized).to.be.null;
 });

@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-address-with-street-name-only test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-fake-address-and-expect-not-verified-status test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +22,7 @@ Given('the API endpoint for verify-address-with-street-name-only test is {string
   };
 });
 
-Given('the request body for verify-address-with-street-name-only is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-fake-address-and-expect-not-verified-status is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -34,12 +34,12 @@ Given('the request body for verify-address-with-street-name-only is:', function 
   };
 });
 
-When('I send a POST request for verify-address-with-street-name-only', async function (this: CustomWorld) {
+When('I send a POST request for verify-fake-address-and-expect-not-verified-status', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
+    if (axios.isAxiosError(error)) {
       this.response = error.response;
     } else {
       throw error;
@@ -47,17 +47,22 @@ When('I send a POST request for verify-address-with-street-name-only', async fun
   }
 });
 
-Then('the response status for verify-address-with-street-name-only should be 200', function (this: CustomWorld) {
+Then('the response status for verify-fake-address-and-expect-not-verified-status should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-address-with-street-name-only should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-fake-address-and-expect-not-verified-status should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('responseCode');
   expect(responseBody.responseCode).to.equal(expectedCode);
 });
 
-Then('the validatedAddress should be null for verify-address-with-street-name-only', function (this: CustomWorld) {
+Then('the validatedAddress should be null for verify-fake-address-and-expect-not-verified-status', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody.validatedAddress).to.be.null;
+});
+
+Then('the requestAddressSanitized should be populated for verify-fake-address-and-expect-not-verified-status', function (this: CustomWorld) {
+  const responseBody = this.response?.data;
+  expect(responseBody.requestAddress).to.not.be.empty;
 });

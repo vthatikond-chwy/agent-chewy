@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-address-with-incorrect-city-name-and-expect-corrected-response test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for validate-empty-postal-code-and-expect-corrections test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +22,7 @@ Given('the API endpoint for verify-address-with-incorrect-city-name-and-expect-c
   };
 });
 
-Given('the request body for verify-address-with-incorrect-city-name-and-expect-corrected-response is:', function (this: CustomWorld, dataTable) {
+Given('the request body for validate-empty-postal-code-and-expect-corrections is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -34,7 +34,7 @@ Given('the request body for verify-address-with-incorrect-city-name-and-expect-c
   };
 });
 
-When('I send a POST request for verify-address-with-incorrect-city-name-and-expect-corrected-response', async function (this: CustomWorld) {
+When('I send a POST request for validate-empty-postal-code-and-expect-corrections', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
@@ -47,26 +47,26 @@ When('I send a POST request for verify-address-with-incorrect-city-name-and-expe
   }
 });
 
-Then('the response status for verify-address-with-incorrect-city-name-and-expect-corrected-response should be 200', function (this: CustomWorld) {
+Then('the response status for validate-empty-postal-code-and-expect-corrections should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-address-with-incorrect-city-name-and-expect-corrected-response should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for validate-empty-postal-code-and-expect-corrections should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseCode = this.response?.data.responseCode;
   expect(responseCode).to.equal(expectedCode);
 });
 
-Then('the cityChanged field for verify-address-with-incorrect-city-name-and-expect-corrected-response should be true', function (this: CustomWorld) {
-  const cityChanged = this.response?.data.cityChanged;
-  expect(cityChanged).to.be.true;
+Then('the postalChanged field for validate-empty-postal-code-and-expect-corrections should be true', function (this: CustomWorld) {
+  const postalChanged = this.response?.data.postalChanged;
+  expect(postalChanged).to.be.true;
 });
 
-Then('the validatedAddress should be populated for verify-address-with-incorrect-city-name-and-expect-corrected-response', function (this: CustomWorld) {
+Then('the validatedAddress should be populated for validate-empty-postal-code-and-expect-corrections', function (this: CustomWorld) {
   const validatedAddress = this.response?.data.validatedAddress;
-  expect(validatedAddress).to.not.be.null;
+  expect(validatedAddress).to.not.be.empty;
 });
 
-Then('the requestAddressSanitized should be null for verify-address-with-incorrect-city-name-and-expect-corrected-response', function (this: CustomWorld) {
+Then('the requestAddressSanitized should be null for validate-empty-postal-code-and-expect-corrections', function (this: CustomWorld) {
   const requestAddressSanitized = this.response?.data.requestAddressSanitized;
   expect(requestAddressSanitized).to.be.null;
 });
