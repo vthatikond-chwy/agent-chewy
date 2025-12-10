@@ -7,6 +7,7 @@ import SwaggerParser from '@apidevtools/swagger-parser';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { faker } from '@faker-js/faker';
 import { loadConfig } from './config.js';
 import { loadTeamConfig, getBaseUrl as getTeamBaseUrl } from './team-config.js';
 import type { TeamConfig } from './team-config.js';
@@ -39,6 +40,169 @@ export class SimpleTestGenerator {
     this.openai = new OpenAI({
       apiKey: apiKey || process.env.OPENAI_API_KEY
     });
+  }
+
+  /**
+   * Generate realistic test data using Faker for common field types
+   * This is used when the user doesn't specify exact values in their NLP command
+   */
+  private generateRealisticTestData(fieldName: string, fieldSchema?: any): any {
+    const lowerFieldName = fieldName.toLowerCase();
+
+    // Address-related fields
+    if (lowerFieldName.includes('street') || lowerFieldName === 'streets') {
+      return [faker.location.streetAddress()];
+    }
+    if (lowerFieldName.includes('city')) {
+      return faker.location.city();
+    }
+    if (lowerFieldName.includes('state') || lowerFieldName.includes('province')) {
+      return faker.location.state({ abbreviated: true });
+    }
+    if (lowerFieldName.includes('postal') || lowerFieldName.includes('zip')) {
+      return faker.location.zipCode();
+    }
+    if (lowerFieldName.includes('country')) {
+      return 'US';
+    }
+
+    // Contact fields
+    if (lowerFieldName.includes('email')) {
+      return faker.internet.email();
+    }
+    if (lowerFieldName.includes('phone')) {
+      return faker.phone.number();
+    }
+    if (lowerFieldName.includes('name')) {
+      if (lowerFieldName.includes('first')) return faker.person.firstName();
+      if (lowerFieldName.includes('last')) return faker.person.lastName();
+      return faker.person.fullName();
+    }
+
+    // Business fields
+    if (lowerFieldName.includes('company')) {
+      return faker.company.name();
+    }
+
+    // Based on schema type
+    if (fieldSchema) {
+      if (fieldSchema.type === 'string') {
+        if (fieldSchema.format === 'email') return faker.internet.email();
+        if (fieldSchema.format === 'uri') return faker.internet.url();
+        if (fieldSchema.format === 'date') return faker.date.recent().toISOString().split('T')[0];
+        if (fieldSchema.format === 'date-time') return faker.date.recent().toISOString();
+        return faker.lorem.word();
+      }
+      if (fieldSchema.type === 'number' || fieldSchema.type === 'integer') {
+        return faker.number.int({ min: 1, max: 100 });
+      }
+      if (fieldSchema.type === 'boolean') {
+        return faker.datatype.boolean();
+      }
+    }
+
+    // Default
+    return null;
+  }
+
+  /**
+   * Parse expected response code from natural language
+   * Looks for patterns like: "Expect NOT_VERIFIED", "MUST return CORRECTED", "should be VERIFIED"
+   */
+  private parseExpectedResponseCode(naturalLanguage: string): string | null {
+    const responseCodes = ['VERIFIED', 'CORRECTED', 'NOT_VERIFIED', 'PREMISES_PARTIAL', 'STREET_PARTIAL'];
+
+    // Patterns to match expected response codes
+    const patterns = [
+      /expect\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+      /MUST\s+(?:return|be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+      /should\s+(?:return|be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+      /response\s+(?:code\s+)?(?:is|should be|must be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = naturalLanguage.match(pattern);
+      if (match && match[1]) {
+        const code = match[1].toUpperCase();
+        if (responseCodes.includes(code)) {
+          return code;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse exact input data from natural language command
+   * Extracts key-value pairs like: streets=['600 HARLAN CT'], city='Bonaire', postalCode='31005-5427'
+   * Returns parsed data object or null if no explicit data found
+   */
+  private parseInputDataFromNLP(naturalLanguage: string): any | null {
+    try {
+      const inputData: any = {};
+      let hasData = false;
+
+      // Fields that are output/assertion fields, not input fields
+      const outputFields = [
+        'postalChanged', 'cityChanged', 'stateProvinceChanged', 'streetChanged',
+        'responseCode', 'validatedAddress', 'requestAddressSanitized',
+        'status', 'error', 'message'
+      ];
+
+      // Pattern to match: key=['value'] or key="value" or key='value' or key=value
+      const patterns = [
+        /(\w+)=\['([^']+)'\]/g,        // streets=['600 HARLAN CT']
+        /(\w+)=\["([^"]+)"\]/g,        // streets=["600 HARLAN CT"]
+        /(\w+)='([^']*)'/g,             // city='Bonaire' or postalCode=''
+        /(\w+)="([^"]*)"/g,             // city="Bonaire"
+        /(\w+)=(\w+)/g,                 // country=US
+      ];
+
+      for (const pattern of patterns) {
+        let match;
+        const regex = new RegExp(pattern);
+        while ((match = regex.exec(naturalLanguage)) !== null) {
+          const key = match[1];
+          let value = match[2];
+
+          // Skip if this is an output/assertion field
+          if (outputFields.includes(key)) {
+            continue;
+          }
+
+          // Skip if this is part of an assertion (contains 'should', 'expect', 'must', 'with ')
+          const before = naturalLanguage.substring(Math.max(0, match.index - 40), match.index);
+          const after = naturalLanguage.substring(match.index, Math.min(naturalLanguage.length, match.index + 50));
+          if (before.toLowerCase().includes('expect') ||
+              before.toLowerCase().includes('should') ||
+              before.toLowerCase().includes('assert') ||
+              after.toLowerCase().includes('populated') ||
+              after.toLowerCase().includes('null')) {
+            continue;
+          }
+
+          // Convert to appropriate type
+          if (key === 'streets') {
+            inputData[key] = [value];
+          } else if (value === '') {
+            inputData[key] = '';
+          } else if (value === 'true' || value === 'false') {
+            inputData[key] = value === 'true';
+          } else if (!isNaN(Number(value)) && value !== '') {
+            inputData[key] = Number(value);
+          } else {
+            inputData[key] = value;
+          }
+          hasData = true;
+        }
+      }
+
+      return hasData ? inputData : null;
+    } catch (error) {
+      console.log('⚠️  Could not parse input data from NLP, will rely on AI generation');
+      return null;
+    }
   }
 
   /**
@@ -111,7 +275,19 @@ export class SimpleTestGenerator {
     targetEndpoints?: string[],
     swaggerSpecPath?: string
   ): Promise<TestScenario[]> {
-    
+
+    // Parse exact input data from natural language command
+    const parsedInputData = this.parseInputDataFromNLP(naturalLanguageInput);
+    if (parsedInputData) {
+      console.log('✅ Parsed exact input data from NLP:', JSON.stringify(parsedInputData, null, 2));
+    }
+
+    // Parse expected response code from natural language command
+    const expectedResponseCode = this.parseExpectedResponseCode(naturalLanguageInput);
+    if (expectedResponseCode) {
+      console.log('✅ Parsed expected response code from NLP:', expectedResponseCode);
+    }
+
     // Load team rules for working test data
     const teamRules = swaggerSpecPath ? loadTeamRules(swaggerSpecPath) : null;
     
@@ -150,14 +326,14 @@ export class SimpleTestGenerator {
               if (teamRules?.testData?.workingAddresses) {
                 const endpointName = path.split('/').pop() || '';
                 let workingData: any = null;
-                
+
                 // Determine which working data to use
                 if (path.includes('verify') && !path.includes('Bulk')) {
                   workingData = teamRules.testData.workingAddresses.verifyAddress;
                 } else if (path.includes('suggest')) {
                   workingData = teamRules.testData.workingAddresses.suggestAddresses;
                 }
-                
+
                 // Merge working data into default request body
                 if (workingData) {
                   defaultRequestBody = {
@@ -165,6 +341,14 @@ export class SimpleTestGenerator {
                     ...workingData
                   };
                 }
+              }
+
+              // Merge parsed input data from NLP command (highest priority)
+              if (parsedInputData) {
+                defaultRequestBody = {
+                  ...defaultRequestBody,
+                  ...parsedInputData
+                };
               }
             }
             
@@ -319,9 +503,53 @@ Return ONLY valid JSON with no additional text, in this exact format:
   ]
 }`;
 
+    // Build input data instructions if we have parsed data
+    let inputDataInstructions = '';
+    if (parsedInputData) {
+      inputDataInstructions = `
+
+CRITICAL - Exact Input Data Provided:
+The following input data MUST be used EXACTLY as specified in the test scenario's testData field.
+Do NOT modify, generate, or change these values:
+
+${JSON.stringify(parsedInputData, null, 2)}
+
+Instructions:
+- Use EXACTLY these field values in the testData object
+- Do NOT change or generate different values for these fields
+- For any fields NOT specified above, you may use realistic test data or leave them as per schema defaults
+- Ensure all required schema fields are present (add defaults for unspecified required fields)
+`;
+    }
+
+    // Build expected response code instructions if specified
+    let expectedResponseCodeInstructions = '';
+    if (expectedResponseCode) {
+      expectedResponseCodeInstructions = `
+
+🚨🚨🚨 CRITICAL - MANDATORY Expected Response Code 🚨🚨🚨
+The user has EXPLICITLY specified the expected response code for this test:
+
+EXPECTED RESPONSE CODE: ${expectedResponseCode}
+
+ABSOLUTE REQUIREMENTS:
+- The test assertions MUST expect responseCode to be "${expectedResponseCode}"
+- Do NOT use any other response code (VERIFIED, CORRECTED, NOT_VERIFIED, PREMISES_PARTIAL, STREET_PARTIAL)
+- This is the HIGHEST PRIORITY requirement - it overrides all other response code logic
+- Include assertions that match ${expectedResponseCode} behavior:
+  ${expectedResponseCode === 'NOT_VERIFIED' ? '* validatedAddress should be null\n  * requestAddressSanitized should be populated' : ''}
+  ${expectedResponseCode === 'VERIFIED' ? '* All change indicators (postalChanged, cityChanged, etc.) should be false\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
+  ${expectedResponseCode === 'CORRECTED' ? '* Relevant change indicators should be true\n  * validatedAddress should be populated\n  * requestAddressSanitized should be null' : ''}
+  ${expectedResponseCode === 'PREMISES_PARTIAL' || expectedResponseCode === 'STREET_PARTIAL' ? '* validatedAddress should be populated' : ''}
+
+DO NOT DEVIATE FROM THIS EXPECTED RESPONSE CODE UNDER ANY CIRCUMSTANCES.
+`;
+    }
+
     const userPrompt = `Natural Language Requirement:
 ${naturalLanguageInput}
-
+${inputDataInstructions}
+${expectedResponseCodeInstructions}
 API Specification:
 ${JSON.stringify({
   apiTitle: swaggerSpec.info.title,
@@ -348,8 +576,30 @@ ${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCou
       }
 
       const result = JSON.parse(content);
-      return result.scenarios || [];
-      
+      const scenarios = result.scenarios || [];
+
+      // Merge parsed input data into each scenario's testData (highest priority)
+      if (parsedInputData && scenarios.length > 0) {
+        scenarios.forEach((scenario: TestScenario) => {
+          scenario.testData = {
+            ...(scenario.testData || {}),
+            ...parsedInputData
+          };
+        });
+        console.log('✅ Merged parsed input data into scenario.testData');
+      }
+
+      // Store expected response code in scenario metadata (for post-processing to respect)
+      if (expectedResponseCode && scenarios.length > 0) {
+        scenarios.forEach((scenario: TestScenario) => {
+          // Store in a special metadata field that won't affect test data
+          (scenario as any).__expectedResponseCode = expectedResponseCode;
+        });
+        console.log('✅ Stored expected response code in scenario metadata:', expectedResponseCode);
+      }
+
+      return scenarios;
+
     } catch (error: any) {
       throw new Error(`Failed to generate test scenarios: ${error.message}`);
     }
@@ -363,7 +613,7 @@ ${exactCount ? `CRITICAL: Generate EXACTLY ${exactCount} test scenario${exactCou
     swaggerSpec: any,
     swaggerSpecPath?: string
   ): Promise<string> {
-    
+
     const scenarioName = scenario.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     
     // Load team rules
@@ -431,38 +681,46 @@ IMPORTANT: Always include assertions for both responseCode AND the relevant chan
 - Required fields: ${analyzed.requiredFields.join(', ')}
 - Optional fields: ${analyzed.optionalFields.join(', ')}`;
           
-          // Use working test data from rules if available
-          if (teamRules?.testData?.workingAddresses) {
-            // Try to match endpoint name
-            const endpointName = scenario.endpoint.split('/').pop() || '';
-            let workingData = teamRules.testData.workingAddresses[endpointName] ||
-                            teamRules.testData.workingAddresses[scenario.endpoint] ||
-                            teamRules.testData.workingAddresses.verifyAddress ||
-                            teamRules.testData.workingAddresses.suggestAddresses;
-            
-            // For suggestAddresses, prefer suggestAddresses data
-            if (scenario.endpoint.includes('suggest')) {
-              workingData = teamRules.testData.workingAddresses.suggestAddresses || workingData;
+          // Priority 1: Use test data from scenario (from NLP-parsed input or AI generation)
+          // Priority 2: Use working test data from rules.json if no scenario test data
+          let dataSource = scenario.testData;
+          let dataSourceLabel = 'from test scenario';
+
+          if (!dataSource || Object.keys(dataSource).length === 0) {
+            // Fallback to working data from rules if scenario has no test data
+            if (teamRules?.testData?.workingAddresses) {
+              const endpointName = scenario.endpoint.split('/').pop() || '';
+              dataSource = teamRules.testData.workingAddresses[endpointName] ||
+                          teamRules.testData.workingAddresses[scenario.endpoint] ||
+                          teamRules.testData.workingAddresses.verifyAddress ||
+                          teamRules.testData.workingAddresses.suggestAddresses;
+
+              // For suggestAddresses, prefer suggestAddresses data
+              if (scenario.endpoint.includes('suggest')) {
+                dataSource = teamRules.testData.workingAddresses.suggestAddresses || dataSource;
+              }
+              // For verifyAddress, prefer verifyAddress data
+              if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
+                dataSource = teamRules.testData.workingAddresses.verifyAddress || dataSource;
+              }
+              dataSourceLabel = 'from rules.json working data';
             }
-            // For verifyAddress, prefer verifyAddress data
-            if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
-              workingData = teamRules.testData.workingAddresses.verifyAddress || workingData;
-            }
-            
-            if (workingData) {
-              // Format as data table for feature file
-              const dataTableRows: string[] = [];
-              const fields = Object.keys(workingData);
-              dataTableRows.push(`      | ${fields.join(' | ')} |`);
-              const values = fields.map(f => {
-                const val = workingData[f];
-                return Array.isArray(val) ? val[0] : val;
-              });
-              dataTableRows.push(`      | ${values.join(' | ')} |`);
-              
-              exampleData = `\n\n🚨🚨🚨 CRITICAL - MANDATORY TEST DATA - DEFAULT TO TRUE 🚨🚨🚨
-YOU MUST USE THIS EXACT WORKING TEST DATA. THIS IS NOT OPTIONAL - IT IS MANDATORY.
-DO NOT GENERATE YOUR OWN ADDRESSES. DO NOT MODIFY THESE VALUES. DO NOT USE ANY OTHER ADDRESSES.
+          }
+
+          if (dataSource) {
+            // Format as data table for feature file
+            const dataTableRows: string[] = [];
+            const fields = Object.keys(dataSource);
+            dataTableRows.push(`      | ${fields.join(' | ')} |`);
+            const values = fields.map(f => {
+              const val = dataSource[f];
+              return Array.isArray(val) ? val[0] : val;
+            });
+            dataTableRows.push(`      | ${values.join(' | ')} |`);
+
+            exampleData = `\n\n🚨🚨🚨 CRITICAL - MANDATORY TEST DATA ${dataSourceLabel.toUpperCase()} 🚨🚨🚨
+YOU MUST USE THIS EXACT TEST DATA. THIS IS NOT OPTIONAL - IT IS MANDATORY.
+DO NOT GENERATE YOUR OWN DATA. DO NOT MODIFY THESE VALUES.
 
 REQUIRED DATA TABLE (copy EXACTLY - character for character):
 ${dataTableRows.join('\n')}
@@ -470,12 +728,10 @@ ${dataTableRows.join('\n')}
 ABSOLUTELY FORBIDDEN - DO NOT USE:
 - "123 Main St", "123 Elm St", "123 Palm Tree Rd", "456 Disney Ln", "1600 Amphitheatre Pkwy" (unless it's the exact one above)
 - "Miami", "Orlando", "Washington DC", "Mountain View" (unless it's the exact one above)
-- ANY addresses NOT listed in the REQUIRED DATA TABLE above
+- ANY data NOT listed in the REQUIRED DATA TABLE above
 
-YOU MUST USE ONLY AND EXACTLY THE WORKING TEST DATA PROVIDED ABOVE.
-IF YOU USE ANY OTHER ADDRESS, THE TEST WILL FAIL.
-THIS IS THE DEFAULT BEHAVIOR - ALWAYS USE WORKING TEST DATA FROM RULES.`;
-            }
+YOU MUST USE ONLY AND EXACTLY THE TEST DATA PROVIDED ABOVE.
+IF YOU USE ANY OTHER DATA, THE TEST WILL FAIL.`;
           }
         }
       }
@@ -560,15 +816,19 @@ ${rulesContext ? `\n\n${rulesContext}` : ''}`;
       }
       
       // Post-process: Replace ANY non-working addresses with working test data from rules
-      // BUT skip this for negative scenarios (they already have invalid data from enforceWorkingTestData)
-      const isNegativeScenario = scenario.type === 'negative' || 
+      // BUT skip this for:
+      // 1. Negative scenarios (they already have invalid data from enforceWorkingTestData)
+      // 2. Scenarios with parsed NLP data (scenario.testData is already populated)
+      const isNegativeScenario = scenario.type === 'negative' ||
                                  scenario.type === 'boundary' ||
                                  scenario.name.toLowerCase().includes('invalid') ||
                                  scenario.name.toLowerCase().includes('missing') ||
                                  scenario.name.toLowerCase().includes('error') ||
                                  scenario.name.toLowerCase().includes('fail');
-      
-      if (!isNegativeScenario && teamRules?.testData?.workingAddresses) {
+
+      const hasParsedNLPData = scenario.testData && Object.keys(scenario.testData).length > 0;
+
+      if (!isNegativeScenario && !hasParsedNLPData && teamRules?.testData?.workingAddresses) {
         let workingData = null;
         if (scenario.endpoint.includes('verify') && !scenario.endpoint.includes('Bulk')) {
           workingData = teamRules.testData.workingAddresses.verifyAddress;
@@ -1832,14 +2092,38 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
     if (!teamRules?.testData?.workingAddresses) {
       return content;
     }
-    
+
+    // PRIORITY 1: If scenario.testData is already populated (from NLP parsing), use it
+    if (scenario.testData && Object.keys(scenario.testData).length > 0) {
+      console.log('✅ Using scenario.testData from NLP parsing (skipping rules.json override)');
+      const testStreet = Array.isArray(scenario.testData.streets) ? scenario.testData.streets[0] : scenario.testData.streets;
+      const testCity = scenario.testData.city || '';
+      const testState = scenario.testData.stateOrProvince || '';
+      const testPostal = scenario.testData.postalCode !== undefined ? scenario.testData.postalCode : '';
+      const testCountry = scenario.testData.country || '';
+
+      // Replace test data in content
+      let updatedContent = content;
+
+      // Replace data table if present
+      const dataTableRegex = /\|\s*streets\s*\|\s*city\s*\|\s*stateOrProvince\s*\|\s*postalCode\s*\|\s*country\s*\|[\s\S]*?\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|\s*[^|]+\s*\|/;
+      if (dataTableRegex.test(updatedContent)) {
+        updatedContent = updatedContent.replace(
+          dataTableRegex,
+          `| streets | city | stateOrProvince | postalCode | country |\n      | ${testStreet} | ${testCity} | ${testState} | ${testPostal} | ${testCountry} |`
+        );
+      }
+
+      return updatedContent;
+    }
+
     // Determine if this is a negative/boundary scenario that needs invalid test data
     const scenarioNameLower = scenario.name.toLowerCase();
     const scenarioDescLower = (scenario.description || '').toLowerCase();
     const contentLower = content.toLowerCase();
-    
+
     // Check for negative/boundary indicators
-    const isNegativeScenario = scenario.type === 'negative' || 
+    const isNegativeScenario = scenario.type === 'negative' ||
                                scenario.type === 'boundary' ||
                                scenarioNameLower.includes('invalid') ||
                                scenarioNameLower.includes('missing') ||
@@ -1851,7 +2135,7 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
                                scenarioDescLower.includes('error') ||
                                contentLower.includes('invalid') ||
                                contentLower.includes('missing required');
-    
+
     // Determine which test data to use based on scenario type and context
     let testData = null;
     const isResidentialAddress = scenarioNameLower.includes('residential') || 
@@ -1996,12 +2280,18 @@ CRITICAL: Make ALL step definitions unique by including scenario context in the 
    * Also validates against Swagger spec enum values.
    */
   private adjustExpectedResponseCodes(content: string, scenario: TestScenario, teamRules: any, swaggerSpec: any): string {
+    // HIGHEST PRIORITY: If user explicitly specified expected response code, DO NOT adjust it
+    if ((scenario as any).__expectedResponseCode) {
+      console.log(`✅ Skipping response code adjustment - user specified: ${(scenario as any).__expectedResponseCode}`);
+      return content;
+    }
+
     if (!teamRules?.testData?.workingAddresses) {
       return content;
     }
 
     // Check if we're using working test data
-    const isUsingWorkingData = 
+    const isUsingWorkingData =
       (scenario.endpoint.includes('verify') && teamRules.testData.workingAddresses.verifyAddress) ||
       (scenario.endpoint.includes('suggest') && teamRules.testData.workingAddresses.suggestAddresses);
 
