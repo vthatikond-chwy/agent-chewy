@@ -1,6 +1,7 @@
 /**
  * Main orchestrator for API test generation
  * Coordinates Swagger parsing, NLP processing, and test generation
+ * Now enhanced with Context Library support for better test generation
  */
 
 import * as fs from 'fs';
@@ -9,6 +10,7 @@ import { SwaggerSpecParser } from './swagger/parser.js';
 import { OpenAIClient } from './nlp/openaiClient.js';
 import { TestScenario, SwaggerEndpoint, GenerationOptions } from './types.js';
 import { loadConfig } from './config.js';
+import { ContextLoader, ApiContext } from './context/index.js';
 
 export interface GenerationRequest {
   naturalLanguageInput: string;
@@ -17,6 +19,10 @@ export interface GenerationRequest {
   targetEndpoints?: string[] | undefined;
   targetTags?: string[] | undefined;
   options?: GenerationOptions | undefined;
+  /** Team name to load context for (e.g., 'avs', 'kyrios') */
+  teamName?: string | undefined;
+  /** Whether to use domain context for enhanced generation */
+  useContext?: boolean | undefined;
 }
 
 export interface GenerationResult {
@@ -32,11 +38,14 @@ export interface GenerationResult {
 export class ApiTestOrchestrator {
   private swaggerParser: SwaggerSpecParser;
   private openaiClient: OpenAIClient;
+  private contextLoader: ContextLoader;
   private config = loadConfig();
+  private currentContext: ApiContext | null = null;
 
   constructor(openaiApiKey?: string) {
     this.swaggerParser = new SwaggerSpecParser();
     this.openaiClient = new OpenAIClient(openaiApiKey);
+    this.contextLoader = new ContextLoader();
   }
 
   /**
@@ -57,6 +66,11 @@ export class ApiTestOrchestrator {
 
     try {
       console.log('🚀 Starting API test generation...\n');
+
+      // Step 0: Load domain context if available
+      if (request.teamName && request.useContext !== false) {
+        await this.loadTeamContext(request.teamName);
+      }
 
       // Step 1: Load Swagger specification
       await this.loadSwaggerSpec(request);
@@ -166,6 +180,25 @@ export class ApiTestOrchestrator {
   }
 
   /**
+   * Load team-specific context for enhanced test generation
+   */
+  private async loadTeamContext(teamName: string): Promise<void> {
+    console.log(`📚 Loading context for team: ${teamName}...`);
+    
+    const result = await this.contextLoader.loadTeamContext(teamName);
+    
+    if (result.success && result.context) {
+      this.currentContext = result.context;
+      console.log(`   ✅ Context loaded: ${result.context.domain.serviceName}`);
+      console.log(`   📋 ${result.context.domain.businessRules.length} business rules`);
+      console.log(`   🎯 ${result.context.endpoints.length} endpoints with context`);
+      console.log(`   💡 ${result.context.generationHints.length} generation hints\n`);
+    } else {
+      console.log(`   ⚠️ No context available for ${teamName}, proceeding without domain context\n`);
+    }
+  }
+
+  /**
    * Load Swagger specification from file or URL
    */
   private async loadSwaggerSpec(request: GenerationRequest): Promise<void> {
@@ -231,9 +264,15 @@ export class ApiTestOrchestrator {
       securitySchemes: this.swaggerParser.getSecuritySchemes()
     };
 
+    // Include domain context if available for enhanced generation
+    const domainContext = this.currentContext 
+      ? this.contextLoader.formatContextForLLM(this.currentContext)
+      : undefined;
+
     const scenarios = await this.openaiClient.extractTestScenarios(
       naturalLanguageInput,
-      swaggerContext
+      swaggerContext,
+      domainContext
     );
 
     // Filter scenarios based on options
@@ -377,5 +416,26 @@ export class ApiTestOrchestrator {
    */
   getOpenAIClient(): OpenAIClient {
     return this.openaiClient;
+  }
+
+  /**
+   * Get context loader (for advanced use cases)
+   */
+  getContextLoader(): ContextLoader {
+    return this.contextLoader;
+  }
+
+  /**
+   * Get currently loaded context
+   */
+  getCurrentContext(): ApiContext | null {
+    return this.currentContext;
+  }
+
+  /**
+   * Manually set context (useful for testing or custom context)
+   */
+  setContext(context: ApiContext): void {
+    this.currentContext = context;
   }
 }

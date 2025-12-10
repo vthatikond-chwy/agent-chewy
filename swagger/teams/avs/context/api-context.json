@@ -1,0 +1,565 @@
+{
+  "version": "2.0.0",
+  "lastUpdated": "2025-01-10T00:00:00.000Z",
+  "team": "avs",
+  "sourceCodeAnalyzed": true,
+  "sourceRepo": "https://github.com/Chewy-Inc/avs-service",
+  "domain": {
+    "serviceName": "Address Verification Service (AVS)",
+    "serviceDescription": "REST API for validating and correcting US postal addresses. Uses FedEx or Experian engines to verify addresses against USPS database.",
+    "businessRules": [
+      {
+        "id": "br_verified",
+        "name": "VERIFIED Response",
+        "description": "Address is valid and complete. No significant corrections were needed.",
+        "impact": "high",
+        "codeReference": "AVSResponse.java:120 - responseCode = ResponseCode.VERIFIED",
+        "testRecommendations": [
+          "Test with addresses from AVSTestAddresses.getVerified()",
+          "Verify validatedAddress is populated",
+          "Verify requestAddressSanitized is null",
+          "ZIP+4 being added still returns VERIFIED (not CORRECTED)"
+        ]
+      },
+      {
+        "id": "br_corrected",
+        "name": "CORRECTED Response",
+        "description": "Address is valid but significant fields were corrected. Triggers: state changed, no postal code provided, ZIP first 5 digits changed, city changed (not standardized), street changed (not standardized).",
+        "impact": "high",
+        "codeReference": "AVSResponse.java:84-123",
+        "testRecommendations": [
+          "Test with missing state/province → CORRECTED",
+          "Test with empty postal code → CORRECTED",
+          "Test with wrong city name → CORRECTED",
+          "Test with missing city and state but valid ZIP → CORRECTED",
+          "Check postalChanged, cityChanged, stateProvinceChanged, streetChanged flags"
+        ]
+      },
+      {
+        "id": "br_verified_vs_corrected",
+        "name": "VERIFIED vs CORRECTED Logic",
+        "description": "Critical distinction: ZIP+4 addition and city/street STANDARDIZATION do NOT trigger CORRECTED. Only significant changes do.",
+        "impact": "high",
+        "codeReference": "AVSResponse.java:113-119",
+        "testRecommendations": [
+          "ZIP+4 added (94043 → 94043-1234) → still VERIFIED",
+          "City standardized (St Louis → Saint Louis) → still VERIFIED",
+          "Street standardized (Street → ST) → still VERIFIED",
+          "Missing postal code → CORRECTED",
+          "Different city name (not just standardized) → CORRECTED"
+        ]
+      },
+      {
+        "id": "br_street_partial",
+        "name": "STREET_PARTIAL Response",
+        "description": "Only the street name is verified, not the full premises. Typically when street number is missing.",
+        "impact": "medium",
+        "codeReference": "AVSTestAddresses.java:76-77",
+        "testRecommendations": [
+          "Test with street name only, no number (e.g., 'Dolores Dr' instead of '39 Dolores Dr')",
+          "Verify requestAddressSanitized is populated",
+          "Verify validatedAddress is null"
+        ]
+      },
+      {
+        "id": "br_premises_partial",
+        "name": "PREMISES_PARTIAL Response",
+        "description": "Street address is verified but apartment/unit number cannot be confirmed.",
+        "impact": "medium",
+        "codeReference": "AVSTestAddresses.java:72-74",
+        "testRecommendations": [
+          "Test with wrong unit number (e.g., 'unit 3' when actual is 'unit 2')",
+          "Test with apartment number that doesn't exist",
+          "Verify validatedAddress is populated"
+        ]
+      },
+      {
+        "id": "br_not_verified",
+        "name": "NOT_VERIFIED Response",
+        "description": "Address cannot be verified - invalid or non-existent. Common causes: wrong state for city, completely fake address, mismatched city/state/postal.",
+        "impact": "high",
+        "codeReference": "AVSTestAddresses.java:79-83",
+        "testRecommendations": [
+          "Test with valid address but wrong state (e.g., Burlington MA address with state=ND)",
+          "Test with completely fake address (e.g., 'foo', 'Giberish', 'nb')",
+          "Test with mismatched city/state/postal combination",
+          "Verify validatedAddress is null",
+          "Verify requestAddressSanitized is populated"
+        ]
+      },
+      {
+        "id": "br_bulk_limits",
+        "name": "Bulk Address Limits",
+        "description": "verifyBulkAddress has a maximum of 100 addresses per request. All addresses must be in the same country.",
+        "impact": "medium",
+        "codeReference": "AVSController.java:128-134",
+        "testRecommendations": [
+          "Test with exactly 100 addresses → should succeed",
+          "Test with 101 addresses → should fail with AVSRequestLimitExceeded",
+          "Test with empty array → should fail with InvalidAddressException"
+        ]
+      }
+    ],
+    "terminology": {
+      "responseCode": "VERIFIED, CORRECTED, STREET_PARTIAL, PREMISES_PARTIAL, NOT_VERIFIED",
+      "shippableResponseCode": "SHIPPABLE, NOT_SHIPPABLE, NOT_VALIDATED (validated against SRM)",
+      "engineResponseCode": "AVS_FEDEX or AVS_EXPERIAN",
+      "validatedAddress": "Populated when address is VERIFIED or CORRECTED",
+      "requestAddressSanitized": "Populated when address is STREET_PARTIAL, PREMISES_PARTIAL, or NOT_VERIFIED",
+      "standardized": "When city/street is abbreviated but semantically same (e.g., St → Street)",
+      "ZIP+4": "Extended ZIP code (e.g., 94043-1234), adding this does NOT make response CORRECTED"
+    },
+    "edgeCases": [
+      {
+        "name": "ZIP+4 Addition Only",
+        "description": "When only ZIP+4 is added (94043 → 94043-1234), response stays VERIFIED, not CORRECTED",
+        "testData": {
+          "streets": ["12501 SW 50TH ST"],
+          "city": "Miramar",
+          "stateOrProvince": "FL",
+          "postalCode": "33027",
+          "country": "US"
+        },
+        "expectedBehavior": "VERIFIED (ZIP becomes 33027-6604 but that's just +4)",
+        "priority": "high",
+        "codeReference": "AVSResponse.java:113-119, AVSResponseCorrectedTests.java:47-69"
+      },
+      {
+        "name": "City Standardization",
+        "description": "City name change that's in validated_city_replacements.csv stays VERIFIED",
+        "testData": {
+          "streets": ["40 Spruce Ln"],
+          "city": "Glenburn",
+          "stateOrProvince": "ME",
+          "postalCode": "04401",
+          "country": "US"
+        },
+        "expectedBehavior": "VERIFIED (city becomes BANGOR but it's in replacements file)",
+        "priority": "high",
+        "codeReference": "AVSResponseCorrectedTests.java:71-90"
+      },
+      {
+        "name": "City Change Not Standardized",
+        "description": "City name change that's NOT in replacements file triggers CORRECTED",
+        "testData": {
+          "streets": ["125 Washington St."],
+          "city": "Whitman",
+          "stateOrProvince": "MA",
+          "postalCode": "02332",
+          "country": "US"
+        },
+        "expectedBehavior": "CORRECTED (city becomes Duxbury, not in replacements)",
+        "priority": "high",
+        "codeReference": "AVSResponseCorrectedTests.java:25-45"
+      },
+      {
+        "name": "Missing State But Valid ZIP",
+        "description": "Address with null state but valid ZIP gets corrected",
+        "testData": {
+          "streets": ["39 Dolores Dr"],
+          "city": "Burlington",
+          "stateOrProvince": null,
+          "postalCode": "01803",
+          "country": "US"
+        },
+        "expectedBehavior": "CORRECTED with stateOrProvince filled in",
+        "priority": "high",
+        "codeReference": "AVSTestAddresses.java:63"
+      },
+      {
+        "name": "Missing City and State",
+        "description": "Address with only street and ZIP gets city and state corrected",
+        "testData": {
+          "streets": ["5006 Pico Blvd"],
+          "city": null,
+          "stateOrProvince": null,
+          "postalCode": "90019",
+          "country": "US"
+        },
+        "expectedBehavior": "CORRECTED with city and state filled in",
+        "priority": "high",
+        "codeReference": "AVSTestAddresses.java:65"
+      },
+      {
+        "name": "Street Number Missing",
+        "description": "Street name without number returns STREET_PARTIAL",
+        "testData": {
+          "streets": ["Dolores Dr"],
+          "city": "Burlington",
+          "stateOrProvince": "MA",
+          "postalCode": "01803",
+          "country": "US"
+        },
+        "expectedBehavior": "STREET_PARTIAL",
+        "priority": "medium",
+        "codeReference": "AVSTestAddresses.java:76"
+      },
+      {
+        "name": "Wrong Unit Number",
+        "description": "Correct street but wrong apartment/unit number returns PREMISES_PARTIAL",
+        "testData": {
+          "streets": ["5 Goldfinch rd", "unit 3"],
+          "city": "Lincoln",
+          "stateOrProvince": "NH",
+          "postalCode": "03251",
+          "country": "US"
+        },
+        "expectedBehavior": "PREMISES_PARTIAL (actual unit is 'unit 2')",
+        "priority": "medium",
+        "codeReference": "AVSTestAddresses.java:72"
+      },
+      {
+        "name": "Valid Address Wrong State",
+        "description": "Valid address with completely wrong state returns NOT_VERIFIED",
+        "testData": {
+          "streets": ["39 Dolores Dr"],
+          "city": "Burlington",
+          "stateOrProvince": "ND",
+          "postalCode": null,
+          "country": "US"
+        },
+        "expectedBehavior": "NOT_VERIFIED (Burlington is in MA, not ND)",
+        "priority": "high",
+        "codeReference": "AVSTestAddresses.java:80"
+      },
+      {
+        "name": "Completely Fake Address",
+        "description": "Nonsense address returns NOT_VERIFIED",
+        "testData": {
+          "streets": ["foo"],
+          "city": "Giberish",
+          "stateOrProvince": "NB",
+          "postalCode": "03251",
+          "country": "US"
+        },
+        "expectedBehavior": "NOT_VERIFIED",
+        "priority": "high",
+        "codeReference": "AVSTestAddresses.java:81"
+      },
+      {
+        "name": "Street Abbreviation Variations",
+        "description": "Various street abbreviation formats are handled (S.E. → SE, Pointe → PT)",
+        "testData": {
+          "streets": ["800 S.E. 4th Street"],
+          "city": "Ft Lauderdale",
+          "stateOrProvince": "FL",
+          "postalCode": "33301",
+          "country": "US"
+        },
+        "expectedBehavior": "VERIFIED (standardized to SE 4TH ST)",
+        "priority": "medium",
+        "codeReference": "AVSTestAddresses.java:48"
+      }
+    ],
+    "securityConsiderations": [
+      {
+        "name": "Bulk Request Limit",
+        "description": "verifyBulkAddress throws AVSRequestLimitExceeded if > 100 addresses",
+        "testApproach": "Test with 101 addresses, expect error response"
+      },
+      {
+        "name": "Empty Request Handling",
+        "description": "verifyBulkAddress throws InvalidAddressException for empty array",
+        "testApproach": "Test with empty array, expect 400 error"
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "path": "/avs/v1.0/verifyAddress",
+      "method": "POST",
+      "description": "Validates a single address and returns verification result",
+      "requiredFields": ["streets"],
+      "optionalFields": ["city", "stateOrProvince", "postalCode", "country", "addressType"],
+      "requestSchema": {
+        "streets": { "field": "streets", "type": "array", "required": true, "description": "Street lines (at least 1)" },
+        "city": { "field": "city", "type": "string", "required": false, "description": "City name" },
+        "stateOrProvince": { "field": "stateOrProvince", "type": "string", "required": false, "description": "State code (2 letters)" },
+        "postalCode": { "field": "postalCode", "type": "string", "required": false, "description": "ZIP code" },
+        "country": { "field": "country", "type": "string", "required": false, "description": "Country code (defaults to US)" }
+      },
+      "responseCodeBehaviors": [
+        {
+          "code": "VERIFIED",
+          "description": "Address valid, no significant corrections. ZIP+4 addition or standardization still returns VERIFIED.",
+          "validatedAddressState": "populated",
+          "sanitizedAddressState": "null",
+          "triggers": ["Valid complete address", "Only ZIP+4 added", "City/street standardized"],
+          "testScenarios": ["Verify complete valid address returns VERIFIED", "Verify ZIP+4 addition still returns VERIFIED"]
+        },
+        {
+          "code": "CORRECTED",
+          "description": "Address valid but significant corrections made: state changed, empty postal filled, ZIP first 5 changed, city/street changed (not just standardized).",
+          "validatedAddressState": "populated",
+          "sanitizedAddressState": "null",
+          "triggers": ["Empty postal code", "Missing state", "City changed (not standardized)", "ZIP code first 5 digits changed", "State changed"],
+          "testScenarios": ["Verify empty postal code returns CORRECTED", "Verify missing state returns CORRECTED"]
+        },
+        {
+          "code": "STREET_PARTIAL",
+          "description": "Only street name verified, not full premises (e.g., missing street number)",
+          "validatedAddressState": "null",
+          "sanitizedAddressState": "populated",
+          "triggers": ["Street name only (no number)", "Street number doesn't exist"],
+          "testScenarios": ["Verify street without number returns STREET_PARTIAL"]
+        },
+        {
+          "code": "PREMISES_PARTIAL",
+          "description": "Street verified but unit/apartment number cannot be confirmed",
+          "validatedAddressState": "populated",
+          "sanitizedAddressState": "null",
+          "triggers": ["Wrong unit number", "Unit number doesn't exist"],
+          "testScenarios": ["Verify wrong unit number returns PREMISES_PARTIAL"]
+        },
+        {
+          "code": "NOT_VERIFIED",
+          "description": "Address cannot be verified - invalid or non-existent",
+          "validatedAddressState": "null",
+          "sanitizedAddressState": "populated",
+          "triggers": ["Wrong state for city", "Fake address", "Mismatched city/state/postal"],
+          "testScenarios": ["Verify fake address returns NOT_VERIFIED", "Verify wrong state returns NOT_VERIFIED"]
+        }
+      ],
+      "testPatterns": [
+        {
+          "name": "Valid Complete Address (from source tests)",
+          "description": "Known verified address from AVSTestAddresses.java",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals VERIFIED", "validatedAddress is not null", "requestAddressSanitized is null"]
+        },
+        {
+          "name": "Address with California (from source tests)",
+          "description": "LA address from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["3939 Tracy St"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90027", "country": "US" },
+          "expectedResponseCode": "VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals VERIFIED", "validatedAddress is not null"]
+        },
+        {
+          "name": "Missing State - CORRECTED",
+          "description": "Address with null state from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "", "postalCode": "01803", "country": "US" },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "stateProvinceChanged equals true"]
+        },
+        {
+          "name": "Missing City and State - CORRECTED",
+          "description": "Only street and ZIP from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["5006 Pico Blvd"], "city": "", "stateOrProvince": "", "postalCode": "90019", "country": "US" },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "cityChanged equals true"]
+        },
+        {
+          "name": "Missing Postal Code - CORRECTED",
+          "description": "Address without ZIP from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "", "country": "US" },
+          "expectedResponseCode": "CORRECTED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals CORRECTED", "validatedAddress is not null", "postalChanged equals true"]
+        },
+        {
+          "name": "Street Only No Number - STREET_PARTIAL",
+          "description": "Street name without number from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+          "expectedResponseCode": "STREET_PARTIAL",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals STREET_PARTIAL", "validatedAddress is null", "requestAddressSanitized is not null"]
+        },
+        {
+          "name": "Wrong Unit Number - PREMISES_PARTIAL",
+          "description": "Correct street but wrong unit from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["5 Goldfinch rd", "unit 3"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US" },
+          "expectedResponseCode": "PREMISES_PARTIAL",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals PREMISES_PARTIAL", "validatedAddress is not null"]
+        },
+        {
+          "name": "Wrong State - NOT_VERIFIED",
+          "description": "Valid address but wrong state from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "ND", "postalCode": "", "country": "US" },
+          "expectedResponseCode": "NOT_VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals NOT_VERIFIED", "validatedAddress is null", "requestAddressSanitized is not null"]
+        },
+        {
+          "name": "Completely Fake Address - NOT_VERIFIED",
+          "description": "Nonsense address from AVSTestAddresses",
+          "endpoint": "/avs/v1.0/verifyAddress",
+          "data": { "streets": ["foo"], "city": "Giberish", "stateOrProvince": "NB", "postalCode": "03251", "country": "US" },
+          "expectedResponseCode": "NOT_VERIFIED",
+          "expectedHttpStatus": 200,
+          "assertions": ["responseCode equals NOT_VERIFIED", "validatedAddress is null", "requestAddressSanitized is not null"]
+        }
+      ],
+      "assertionTemplates": [
+        {
+          "responseCode": "VERIFIED",
+          "assertions": [
+            { "field": "responseCode", "condition": "equals", "expectedValue": "VERIFIED", "description": "Response code should be VERIFIED" },
+            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
+            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
+          ]
+        },
+        {
+          "responseCode": "CORRECTED",
+          "assertions": [
+            { "field": "responseCode", "condition": "equals", "expectedValue": "CORRECTED", "description": "Response code should be CORRECTED" },
+            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
+            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
+          ]
+        },
+        {
+          "responseCode": "STREET_PARTIAL",
+          "assertions": [
+            { "field": "responseCode", "condition": "equals", "expectedValue": "STREET_PARTIAL", "description": "Response code should be STREET_PARTIAL" },
+            { "field": "validatedAddress", "condition": "isNull", "description": "validatedAddress should be null" },
+            { "field": "requestAddressSanitized", "condition": "notNull", "description": "requestAddressSanitized should be populated" }
+          ]
+        },
+        {
+          "responseCode": "PREMISES_PARTIAL",
+          "assertions": [
+            { "field": "responseCode", "condition": "equals", "expectedValue": "PREMISES_PARTIAL", "description": "Response code should be PREMISES_PARTIAL" },
+            { "field": "validatedAddress", "condition": "notNull", "description": "validatedAddress should be populated" },
+            { "field": "requestAddressSanitized", "condition": "isNull", "description": "requestAddressSanitized should be null" }
+          ]
+        },
+        {
+          "responseCode": "NOT_VERIFIED",
+          "assertions": [
+            { "field": "responseCode", "condition": "equals", "expectedValue": "NOT_VERIFIED", "description": "Response code should be NOT_VERIFIED" },
+            { "field": "validatedAddress", "condition": "isNull", "description": "validatedAddress should be null" },
+            { "field": "requestAddressSanitized", "condition": "notNull", "description": "requestAddressSanitized should be populated" }
+          ]
+        }
+      ],
+      "commonErrors": [
+        { "name": "Empty Request Body", "httpStatus": 400, "cause": "Request body is empty or missing", "testData": {} },
+        { "name": "Missing Streets Field", "httpStatus": 400, "cause": "Required field streets is missing", "testData": { "city": "Burlington" } }
+      ]
+    },
+    {
+      "path": "/avs/v1.0/suggestAddresses",
+      "method": "POST",
+      "description": "Returns address suggestions for partial/invalid addresses",
+      "requiredFields": ["streets"],
+      "optionalFields": ["city", "stateOrProvince", "postalCode", "country"],
+      "requestSchema": {},
+      "responseCodeBehaviors": [],
+      "testPatterns": [
+        {
+          "name": "Get Suggestions for Partial Address",
+          "description": "Partial street name",
+          "endpoint": "/avs/v1.0/suggestAddresses",
+          "data": { "streets": ["39 Dolores"], "city": "Burlington", "stateOrProvince": "MA", "country": "US" },
+          "expectedResponseCode": "N/A",
+          "expectedHttpStatus": 200,
+          "assertions": ["Response is array", "Array has at least one element"]
+        }
+      ],
+      "assertionTemplates": [],
+      "commonErrors": []
+    },
+    {
+      "path": "/avs/v1.0/verifyBulkAddress",
+      "method": "POST",
+      "description": "Bulk validate up to 100 addresses. All must be same country.",
+      "requiredFields": ["addresses"],
+      "optionalFields": ["engine"],
+      "requestSchema": {},
+      "responseCodeBehaviors": [],
+      "testPatterns": [],
+      "assertionTemplates": [],
+      "commonErrors": [
+        { "name": "Exceed 100 Address Limit", "httpStatus": 500, "cause": "AVSRequestLimitExceeded - more than 100 addresses", "testData": "101 addresses" },
+        { "name": "Empty Address Array", "httpStatus": 500, "cause": "InvalidAddressException - no addresses passed", "testData": [] }
+      ]
+    }
+  ],
+  "globalTestData": {
+    "validAddresses": [
+      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+      { "streets": ["15 Sylvester rd"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US" },
+      { "streets": ["5 Goldfinch rd", "unit 2"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US" },
+      { "streets": ["3939 Tracy St"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90027", "country": "US" },
+      { "streets": ["5006 W Pico Blvd"], "city": "Los Angeles", "stateOrProvince": "CA", "postalCode": "90019", "country": "US" },
+      { "streets": ["20307 Mountain Hwy E"], "city": "Spanaway", "stateOrProvince": "WA", "postalCode": "98387", "country": "US" },
+      { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "95425", "country": "US" },
+      { "streets": ["32 Kingsbury St"], "city": "Derry", "stateOrProvince": "NH", "postalCode": "03038-1653", "country": "US" }
+    ],
+    "correctedAddresses": [
+      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "", "postalCode": "01803", "country": "US", "note": "Missing state" },
+      { "streets": ["5006 Pico Blvd"], "city": "", "stateOrProvince": "", "postalCode": "90019", "country": "US", "note": "Missing city and state" },
+      { "streets": ["114 Railroad Ave"], "city": "Cloverdale", "stateOrProvince": "CA", "postalCode": "", "country": "US", "note": "Missing postal" },
+      { "streets": ["32225 Temecula Pkwy"], "city": "Temecula", "stateOrProvince": "CA", "postalCode": "", "country": "US", "note": "Missing postal" }
+    ],
+    "invalidAddresses": [
+      { "streets": ["39 Dolores Dr"], "city": "Burlington", "stateOrProvince": "ND", "postalCode": "", "country": "US", "note": "Wrong state" },
+      { "streets": ["foo"], "city": "Giberish", "stateOrProvince": "NB", "postalCode": "03251", "country": "US", "note": "Fake address" },
+      { "streets": ["3 Corona Del Mar"], "city": "Corona Del", "stateOrProvince": "LA", "postalCode": "", "country": "US", "note": "Mismatched" }
+    ],
+    "streetPartialAddresses": [
+      { "streets": ["Dolores Dr"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US", "note": "No street number" },
+      { "streets": ["Sylvester rd"], "city": "Burlington", "stateOrProvince": "MA", "postalCode": "01803", "country": "US", "note": "No street number" }
+    ],
+    "premisesPartialAddresses": [
+      { "streets": ["5 Goldfinch rd", "unit 3"], "city": "Lincoln", "stateOrProvince": "NH", "postalCode": "03251", "country": "US", "note": "Wrong unit (actual is unit 2)" },
+      { "streets": ["19 central st", "54"], "city": "Somerville", "stateOrProvince": "MA", "postalCode": "02144", "country": "US", "note": "Unit doesn't exist" }
+    ],
+    "boundaryData": []
+  },
+  "generationHints": [
+    {
+      "category": "response_logic",
+      "hint": "VERIFIED stays VERIFIED if only ZIP+4 is added or city/street is standardized. CORRECTED only when significant change (missing postal, different city, state change).",
+      "example": "94043 → 94043-1234 is VERIFIED, not CORRECTED"
+    },
+    {
+      "category": "response_validation",
+      "hint": "For VERIFIED/CORRECTED: validatedAddress populated, requestAddressSanitized null. For NOT_VERIFIED/STREET_PARTIAL: opposite.",
+      "example": "NOT_VERIFIED always has requestAddressSanitized populated"
+    },
+    {
+      "category": "test_data_source",
+      "hint": "Use test addresses from AVSTestAddresses.java - they are proven to work in real tests.",
+      "example": "39 Dolores Dr, Burlington, MA, 01803 → VERIFIED"
+    },
+    {
+      "category": "street_partial",
+      "hint": "STREET_PARTIAL typically happens when street number is missing, only street name provided.",
+      "example": "'Dolores Dr' instead of '39 Dolores Dr' → STREET_PARTIAL"
+    },
+    {
+      "category": "premises_partial",
+      "hint": "PREMISES_PARTIAL happens when unit/apartment number is wrong or doesn't exist.",
+      "example": "'unit 3' when actual is 'unit 2' → PREMISES_PARTIAL"
+    },
+    {
+      "category": "not_verified_triggers",
+      "hint": "NOT_VERIFIED commonly triggered by: wrong state for city, completely fake address, mismatched city/state/postal.",
+      "example": "Burlington address with state=ND instead of MA → NOT_VERIFIED"
+    },
+    {
+      "category": "bulk_limits",
+      "hint": "verifyBulkAddress has max 100 addresses per request, all must be same country.",
+      "example": "101 addresses → AVSRequestLimitExceeded error"
+    },
+    {
+      "category": "assertion_pattern",
+      "hint": "Always check change flags (postalChanged, cityChanged, etc.) when testing CORRECTED responses.",
+      "example": "Missing postal → CORRECTED with postalChanged=true"
+    }
+  ]
+}

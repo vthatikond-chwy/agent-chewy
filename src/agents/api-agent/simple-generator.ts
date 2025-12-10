@@ -1,5 +1,6 @@
 /**
  * Simple API test generator using OpenAI
+ * Enhanced with Context Library for domain-aware test generation
  */
 
 import OpenAI from 'openai';
@@ -15,6 +16,8 @@ import { analyzeSchema, getMinimalRequestBody, getResponseTypeDescription } from
 import { findPatternForEndpoint, getMinimalRequestBodyFromPattern, getResponseTypeFromPattern, getResponseStructureFromPattern } from './self-healing.js';
 import { loadTeamRules, getRulesContext } from './team-rules.js';
 import { ResponseValidator } from './response-validator.js';
+import { ContextLoader } from './context/context-loader.js';
+import type { ApiContext, TestDataPattern, ResponseCodeBehavior } from './context/types.js';
 
 dotenv.config();
 
@@ -35,11 +38,139 @@ export interface TestScenario {
 export class SimpleTestGenerator {
   private openai: OpenAI;
   private config = loadConfig();
+  private contextLoader: ContextLoader;
+  private currentContext: ApiContext | null = null;
 
   constructor(apiKey?: string) {
     this.openai = new OpenAI({
       apiKey: apiKey || process.env.OPENAI_API_KEY
     });
+    this.contextLoader = new ContextLoader();
+  }
+
+  /**
+   * Load context for a team to enable domain-aware test generation
+   */
+  async loadTeamContext(teamName: string): Promise<void> {
+    const result = await this.contextLoader.loadTeamContext(teamName);
+    if (result.success && result.context) {
+      this.currentContext = result.context;
+      console.log(`📚 Context loaded for ${teamName}: ${result.context.domain.serviceName}`);
+    }
+  }
+
+  /**
+   * Get test data pattern from context that matches the NLP input
+   */
+  private getTestDataPatternFromContext(naturalLanguage: string, endpoint: string): TestDataPattern | null {
+    if (!this.currentContext) return null;
+
+    const nlLower = naturalLanguage.toLowerCase();
+    
+    // Find matching endpoint context
+    const endpointContext = this.currentContext.endpoints.find(ep => ep.path === endpoint);
+    if (!endpointContext) return null;
+
+    // Try to match based on expected response code in NLP
+    for (const pattern of endpointContext.testPatterns) {
+      const patternCode = pattern.expectedResponseCode.toLowerCase();
+      
+      // Check if NLP mentions this response code
+      if (nlLower.includes(patternCode)) {
+        console.log(`✅ Found matching context pattern: ${pattern.name} (${pattern.expectedResponseCode})`);
+        return pattern;
+      }
+      
+      // Check for keywords that indicate specific patterns
+      if (patternCode === 'verified' && (nlLower.includes('valid') && nlLower.includes('complete'))) {
+        return pattern;
+      }
+      if (patternCode === 'corrected' && (nlLower.includes('empty postal') || nlLower.includes('correct'))) {
+        return pattern;
+      }
+      if (patternCode === 'not_verified' && (nlLower.includes('fake') || nlLower.includes('invalid') || nlLower.includes('non-existent'))) {
+        return pattern;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get expected response code from context based on scenario type
+   */
+  private getExpectedResponseCodeFromContext(naturalLanguage: string, endpoint: string): string | null {
+    if (!this.currentContext) return null;
+
+    const nlLower = naturalLanguage.toLowerCase();
+    
+    const endpointContext = this.currentContext.endpoints.find(ep => ep.path === endpoint);
+    if (!endpointContext) return null;
+
+    // Match based on triggers in response code behaviors
+    for (const behavior of endpointContext.responseCodeBehaviors) {
+      // Direct mention of response code
+      if (nlLower.includes(behavior.code.toLowerCase())) {
+        return behavior.code;
+      }
+      
+      // Match based on triggers
+      for (const trigger of behavior.triggers) {
+        if (nlLower.includes(trigger.toLowerCase())) {
+          console.log(`✅ Context match: "${trigger}" → ${behavior.code}`);
+          return behavior.code;
+        }
+      }
+    }
+
+    // Keyword-based matching
+    if (nlLower.includes('fake') || nlLower.includes('non-existent') || nlLower.includes('invalid address')) {
+      return 'NOT_VERIFIED';
+    }
+    if (nlLower.includes('empty postal') || nlLower.includes('missing postal') || nlLower.includes('gets corrected')) {
+      return 'CORRECTED';
+    }
+    if (nlLower.includes('valid') && nlLower.includes('complete')) {
+      return 'VERIFIED';
+    }
+
+    return null;
+  }
+
+  /**
+   * Get assertion template from context for a response code
+   */
+  private getAssertionsFromContext(responseCode: string, endpoint: string): string[] {
+    if (!this.currentContext) return [];
+
+    const endpointContext = this.currentContext.endpoints.find(ep => ep.path === endpoint);
+    if (!endpointContext) return [];
+
+    const template = endpointContext.assertionTemplates.find(t => t.responseCode === responseCode);
+    if (!template) return [];
+
+    return template.assertions.map(a => a.description);
+  }
+
+  /**
+   * Get response code behavior from context
+   */
+  private getResponseCodeBehavior(responseCode: string, endpoint: string): ResponseCodeBehavior | null {
+    if (!this.currentContext) return null;
+
+    const endpointContext = this.currentContext.endpoints.find(ep => ep.path === endpoint);
+    if (!endpointContext) return null;
+
+    return endpointContext.responseCodeBehaviors.find(b => b.code === responseCode) || null;
+  }
+
+  /**
+   * Format context for LLM prompt enhancement
+   */
+  private getContextForLLMPrompt(): string {
+    if (!this.currentContext) return '';
+
+    return this.contextLoader.formatContextForLLM(this.currentContext);
   }
 
   /**
@@ -114,10 +245,13 @@ export class SimpleTestGenerator {
 
     // Patterns to match expected response codes
     const patterns = [
-      /expect\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+      /expect(?:s|ing)?\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
       /MUST\s+(?:return|be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
       /should\s+(?:return|be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
       /response\s+(?:code\s+)?(?:is|should be|must be)\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
+      /returns?\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)\s+(?:response|code)?/i,
+      /(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)\s+response/i,
+      /response\s+code\s+(NOT_VERIFIED|VERIFIED|CORRECTED|PREMISES_PARTIAL|STREET_PARTIAL)/i,
     ];
 
     for (const pattern of patterns) {
@@ -276,16 +410,46 @@ export class SimpleTestGenerator {
     swaggerSpecPath?: string
   ): Promise<TestScenario[]> {
 
+    // Load context library for domain-aware generation
+    if (swaggerSpecPath && !this.currentContext) {
+      const teamName = this.extractProjectName(swaggerSpecPath);
+      if (teamName) {
+        await this.loadTeamContext(teamName);
+      }
+    }
+
     // Parse exact input data from natural language command
-    const parsedInputData = this.parseInputDataFromNLP(naturalLanguageInput);
+    let parsedInputData = this.parseInputDataFromNLP(naturalLanguageInput);
     if (parsedInputData) {
       console.log('✅ Parsed exact input data from NLP:', JSON.stringify(parsedInputData, null, 2));
     }
 
     // Parse expected response code from natural language command
-    const expectedResponseCode = this.parseExpectedResponseCode(naturalLanguageInput);
+    let expectedResponseCode = this.parseExpectedResponseCode(naturalLanguageInput);
     if (expectedResponseCode) {
       console.log('✅ Parsed expected response code from NLP:', expectedResponseCode);
+    }
+
+    // CONTEXT ENHANCEMENT: If NLP parsing failed, try to get data from context
+    const targetEndpoint = targetEndpoints?.[0] || Object.keys(swaggerSpec.paths || {})[0];
+    
+    if (!expectedResponseCode && this.currentContext) {
+      expectedResponseCode = this.getExpectedResponseCodeFromContext(naturalLanguageInput, targetEndpoint);
+      if (expectedResponseCode) {
+        console.log('✅ Got expected response code from CONTEXT:', expectedResponseCode);
+      }
+    }
+
+    // CONTEXT ENHANCEMENT: Get test data pattern from context if NLP parsing incomplete
+    if (this.currentContext) {
+      const contextPattern = this.getTestDataPatternFromContext(naturalLanguageInput, targetEndpoint);
+      if (contextPattern) {
+        // If NLP didn't parse data or parsed incomplete data, use context pattern
+        if (!parsedInputData || Object.keys(parsedInputData).length === 0) {
+          parsedInputData = contextPattern.data;
+          console.log('✅ Using test data from CONTEXT pattern:', contextPattern.name);
+        }
+      }
     }
 
     // Load team rules for working test data
@@ -458,8 +622,19 @@ Default patterns:
 `;
     }
 
-    const systemPrompt = `You are an expert API test architect. Generate test scenarios from natural language requirements and API specifications.
+    // Add context library data to prompt if available
+    const contextPrompt = this.currentContext ? `
+DOMAIN CONTEXT (USE THIS FOR ACCURATE TEST GENERATION):
+${this.getContextForLLMPrompt()}
 
+IMPORTANT: Use the domain context above to:
+- Choose the correct expected response code based on input conditions
+- Generate accurate assertions based on response code behaviors
+- Use known working test data patterns when appropriate
+` : '';
+
+    const systemPrompt = `You are an expert API test architect. Generate test scenarios from natural language requirements and API specifications.
+${contextPrompt}
 CRITICAL - Endpoint Selection Based on Swagger Spec:
 Use the Swagger endpoint summaries and descriptions to choose the CORRECT endpoint:
 ${endpointContext}
@@ -511,14 +686,20 @@ Instructions:
 `;
     }
 
-    // Build expected response code instructions if specified (using rules.json if available)
+    // Build expected response code instructions if specified (using context library > rules.json > defaults)
     let expectedResponseCodeInstructions = '';
     if (expectedResponseCode) {
-      // Try to get behavior from rules.json
+      // Try to get behavior from context library first, then rules.json
+      const contextBehavior = this.getResponseCodeBehavior(expectedResponseCode, targetEndpoint);
       const behavior = teamRules?.responseCodeBehaviors?.[expectedResponseCode];
       let behaviorInstructions = '';
       
-      if (behavior) {
+      if (contextBehavior) {
+        // Use behavior from context library (highest priority)
+        behaviorInstructions = `* validatedAddress should be ${contextBehavior.validatedAddressState}
+  * requestAddressSanitized should be ${contextBehavior.sanitizedAddressState}`;
+        console.log(`✅ Using response code behavior from CONTEXT: ${expectedResponseCode}`);
+      } else if (behavior) {
         // Use behavior from rules.json
         behaviorInstructions = `* validatedAddress should be ${behavior.validatedAddress}
   * requestAddressSanitized should be ${behavior.requestAddressSanitized}`;
@@ -763,11 +944,29 @@ IF YOU USE ANY OTHER DATA, THE TEST WILL FAIL.`;
 Generate clear, executable BDD scenarios following best practices.
 Return ONLY the Cucumber feature text, no markdown code blocks or explanations.${responseCodeAssertionGuidance}`;
 
+    // Get expected response code from scenario metadata (set by context library)
+    const expectedResponseCode = (scenario as any).__expectedResponseCode;
+    const expectedResponseCodePrompt = expectedResponseCode ? `
+
+🚨🚨🚨 MANDATORY EXPECTED RESPONSE CODE 🚨🚨🚨
+The expected response code for this test is: ${expectedResponseCode}
+
+YOU MUST generate assertions that expect responseCode to be "${expectedResponseCode}".
+DO NOT use any other response code in the assertions.
+
+Based on ${expectedResponseCode}, include these assertions:
+${expectedResponseCode === 'VERIFIED' ? '- responseCode should be "VERIFIED"\n- validatedAddress should be populated\n- requestAddressSanitized should be null' : ''}
+${expectedResponseCode === 'CORRECTED' ? '- responseCode should be "CORRECTED"\n- validatedAddress should be populated\n- requestAddressSanitized should be null\n- Check relevant change indicators (postalChanged, cityChanged, etc.)' : ''}
+${expectedResponseCode === 'NOT_VERIFIED' ? '- responseCode should be "NOT_VERIFIED"\n- validatedAddress should be null\n- requestAddressSanitized should be populated' : ''}
+${expectedResponseCode === 'STREET_PARTIAL' ? '- responseCode should be "STREET_PARTIAL"\n- validatedAddress should be null\n- requestAddressSanitized should be populated' : ''}
+${expectedResponseCode === 'PREMISES_PARTIAL' ? '- responseCode should be "PREMISES_PARTIAL"\n- validatedAddress should be populated' : ''}
+` : '';
+
     const userPrompt = `Generate a Cucumber/Gherkin feature file for this API test scenario:
 
 Scenario Details:
 ${JSON.stringify(scenario, null, 2)}
-
+${expectedResponseCodePrompt}
 API Context:
 - Base URL: ${this.getBaseUrl(swaggerSpec)}
 - Endpoint: ${scenario.method} ${scenario.endpoint}

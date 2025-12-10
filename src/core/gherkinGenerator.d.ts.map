@@ -1,0 +1,1 @@
+{"version":3,"file":"gherkinGenerator.d.ts","sourceRoot":"","sources":["gherkinGenerator.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,QAAQ,EAAY,MAAM,eAAe,CAAC;AAExD,qBAAa,gBAAgB;IAC3B;;OAEG;IACH,QAAQ,CAAC,IAAI,EAAE,QAAQ,GAAG,MAAM;IAuBhC;;OAEG;IACH,OAAO,CAAC,aAAa;IA4BrB;;OAEG;IACG,UAAU,CAAC,IAAI,EAAE,QAAQ,EAAE,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC;CAKlE"}

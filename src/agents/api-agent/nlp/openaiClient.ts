@@ -18,15 +18,30 @@ export class OpenAIClient {
 
   /**
    * Extract test scenarios from natural language input
+   * Now enhanced with domain context support for better generation
    */
   async extractTestScenarios(
     naturalLanguageInput: string,
-    swaggerContext: any
+    swaggerContext: any,
+    domainContext?: string
   ): Promise<TestScenario[]> {
     const systemPrompt = `You are an expert API test architect specializing in comprehensive test coverage.
 
 Your task is to analyze natural language test requirements along with Swagger/OpenAPI specifications 
 to generate thorough test scenarios.
+
+${domainContext ? `
+## IMPORTANT: Domain-Specific Context
+You have access to domain-specific knowledge about this API. USE THIS CONTEXT to generate accurate tests:
+
+${domainContext}
+
+Apply this domain knowledge when:
+- Choosing test data (use known working examples)
+- Setting expected response codes
+- Writing assertions (use the correct field names and expected values)
+- Naming scenarios (follow the naming conventions)
+` : ''}
 
 Generate test scenarios that cover:
 1. **Positive Tests**: Happy path scenarios with valid data
