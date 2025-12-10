@@ -1,6 +1,6 @@
 {
   "version": "3.0.0",
-  "lastUpdated": "2025-12-10T05:57:46.060Z",
+  "lastUpdated": "2025-12-10T06:34:30.122Z",
   "team": "avs",
   "domain": {
     "serviceName": "AVS Service",
@@ -817,7 +817,7 @@
         {
           "code": "PREMISES_PARTIAL",
           "description": "Partial premises verification",
-          "validatedAddressState": "populated",
+          "validatedAddressState": "null",
           "sanitizedAddressState": "null",
           "triggers": [
             "Wrong unit number"

@@ -7,4 +7,5 @@ export * from './context-loader.js';
 export * from './context-builder.js';
 export * from './source-analyzer.js';
 export * from './full-source-analyzer.js';
+export * from './context-validator.js';
 

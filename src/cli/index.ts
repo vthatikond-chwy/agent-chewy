@@ -592,4 +592,34 @@ apiCommand
     }
   });
 
+// Validate context command
+apiCommand
+  .command('validate')
+  .description('Validate context library against real API responses')
+  .requiredOption('-t, --team <name>', 'Team name (e.g., avs, kyrios)')
+  .option('--fix', 'Auto-fix context based on validation results')
+  .action(async (options: {
+    team: string;
+    fix?: boolean;
+  }) => {
+    try {
+      const { ContextValidator } = await import('../agents/api-agent/context/context-validator.js');
+      const validator = new ContextValidator();
+      
+      const result = await validator.validate(options.team);
+      
+      if (!result.success && options.fix) {
+        await validator.fixContext(options.team);
+      }
+      
+      if (!result.success) {
+        process.exit(1);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
 program.parse();

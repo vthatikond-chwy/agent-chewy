@@ -353,9 +353,30 @@ export class ContextAwareGenerator {
    */
   private generateFeatureFile(scenario: GeneratedScenario, teamName: string): string {
     const testData = scenario.testData;
-    const streetsDisplay = Array.isArray(testData.streets) 
-      ? testData.streets[0] 
-      : testData.streets;
+    
+    // Handle streets array - join with pipe for data table, will be split in step definition
+    const streetsArray = Array.isArray(testData.streets) ? testData.streets : [testData.streets];
+    const streetsDisplay = streetsArray.join(' | ');
+    
+    // For multi-street addresses (like with unit numbers), use street2 column
+    const hasStreet2 = streetsArray.length > 1;
+    
+    if (hasStreet2) {
+      return `Feature: ${scenario.name}
+
+  ${scenario.tags.join(' ')}
+  Scenario: ${scenario.name}
+    Given the API endpoint for ${scenario.id} test is "${scenario.endpoint}"
+    And the request body for ${scenario.id} with unit is prepared with the following details
+      | street1 | street2 | city | stateOrProvince | postalCode | country |
+      | ${streetsArray[0]} | ${streetsArray[1] || ''} | ${testData.city} | ${testData.stateOrProvince} | ${testData.postalCode} | ${testData.country} |
+    When I send a POST request for ${scenario.id} to the address verification service
+    Then the HTTP response status for ${scenario.id} should be ${scenario.expectedHttpStatus}
+    And the response code for ${scenario.id} should be "${scenario.expectedResponseCode}"
+${scenario.expectedResponseCode === 'VERIFIED' || scenario.expectedResponseCode === 'CORRECTED' ? `    And the validatedAddress should be populated for ${scenario.id}` : `    And the validatedAddress should be null for ${scenario.id}`}
+${scenario.expectedResponseCode === 'VERIFIED' ? `    And the requestAddressSanitized should be null for ${scenario.id}` : ''}
+    And the response matches the expected schema`;
+    }
 
     return `Feature: ${scenario.name}
 
@@ -364,7 +385,7 @@ export class ContextAwareGenerator {
     Given the API endpoint for ${scenario.id} test is "${scenario.endpoint}"
     And the request body for ${scenario.id} is prepared with the following details
       | streets | city | stateOrProvince | postalCode | country |
-      | ${streetsDisplay} | ${testData.city} | ${testData.stateOrProvince} | ${testData.postalCode} | ${testData.country} |
+      | ${streetsArray[0]} | ${testData.city} | ${testData.stateOrProvince} | ${testData.postalCode} | ${testData.country} |
     When I send a POST request for ${scenario.id} to the address verification service
     Then the HTTP response status for ${scenario.id} should be ${scenario.expectedHttpStatus}
     And the response code for ${scenario.id} should be "${scenario.expectedResponseCode}"
@@ -406,6 +427,22 @@ Given('the request body for ${scenario.id} is prepared with the following detail
   const addressData = rows[0];
   this.requestBody = {
     streets: [addressData.streets],
+    city: addressData.city,
+    stateOrProvince: addressData.stateOrProvince,
+    postalCode: addressData.postalCode,
+    country: addressData.country,
+  };
+});
+
+Given('the request body for ${scenario.id} with unit is prepared with the following details', function (this: CustomWorld, dataTable) {
+  const rows = dataTable.hashes();
+  const addressData = rows[0];
+  const streets = [addressData.street1];
+  if (addressData.street2) {
+    streets.push(addressData.street2);
+  }
+  this.requestBody = {
+    streets: streets,
     city: addressData.city,
     stateOrProvince: addressData.stateOrProvince,
     postalCode: addressData.postalCode,

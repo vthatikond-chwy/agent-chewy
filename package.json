@@ -15,6 +15,8 @@
     "generate:kyrios": "npx tsx src/cli/index.ts api test -t kyrios -i",
     "generate:kyrios:only": "npx tsx src/cli/index.ts api test -t kyrios --no-run -i",
     "context:avs": "npx tsx src/cli/index.ts api context-full -r https://github.com/Chewy-Inc/avs-service -t avs",
+    "validate:avs": "npx tsx src/cli/index.ts api validate -t avs",
+    "validate:avs:fix": "npx tsx src/cli/index.ts api validate -t avs --fix",
     "api:list": "npx tsx src/cli/index.ts api list",
     "api:list:avs": "npx tsx src/cli/index.ts api list -s swagger/teams/avs/avs-api.json",
     "api:heal": "npx tsx src/cli/index.ts api heal"
