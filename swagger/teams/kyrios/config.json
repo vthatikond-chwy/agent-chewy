@@ -1,11 +1,8 @@
 {
   "baseUrl": "https://kyriosb.csbb.stg.aws.chewy.cloud",
   "environment": "stg",
-  "useOAuth": true,
-  "oauthTokenEnvVar": "OAUTH_TOKEN",
   "defaultHeaders": {
-    "Content-Type": "application/json",
-    "x-submitter-id": "10"
+    "Content-Type": "application/json"
   },
   "timeout": 30000
 }
