@@ -373,14 +373,19 @@
           Your plain English is matched against the context library. It finds the right test data, expected response code, and generates proper assertions—all without calling OpenAI (fast & free!).
         </p>
         <div class="step-example">
-          <div class="step-example-label blue">📌 Example</div>
-          <code>
-            You type: "Test missing postal code returns CORRECTED"<br><br>
-            Agent Chewy generates:<br>
-            • missing-postal-corrected.feature<br>
-            • missing-postal-corrected.steps.ts<br>
-            • Uses real test address with empty postal code<br>
-            • Expects responseCode = "CORRECTED"
+          <div class="step-example-label blue">📌 You type: "Test valid address returns VERIFIED"</div>
+          <code style="white-space: pre; font-family: 'Monaco', 'Menlo', monospace;">
+Feature: Valid Address Returns Verified
+
+  Scenario: Valid Address Returns Verified
+    Given the API endpoint is "/avs/v1.0/verifyAddress"
+    And the request body is prepared with:
+      | streets       | city       | state | zip   |
+      | 39 Dolores Dr | Burlington | MA    | 01803 |
+    When I send a POST request
+    Then the response status should be 200
+    And the response code should be "VERIFIED"
+    And the validatedAddress should be populated
           </code>
         </div>
       </div>
