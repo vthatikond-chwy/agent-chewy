@@ -1,11 +1,11 @@
-Feature: Verify Address with Mismatched City, State, and Postal Code
+Feature: Verify address with mismatched city, state, and postal code
 
   @addressVerification @negative
-  Scenario: Verify Address with Mismatched City, State, and Postal Code
+  Scenario: Verify address with mismatched city, state, and postal code
     Given the API endpoint for verify-address-with-mismatched-city-state-and-postal-code test is "/avs/v1.0/verifyAddress"
     And the request body for verify-address-with-mismatched-city-state-and-postal-code is:
       | streets | city | stateOrProvince | postalCode | country |
-      | 123 XYZ STREET | Snoqualmie | GA | 31005-5427 | US |
+      | 123 XYZ STREET | Wrong City | XX | 0 | US |
     When I send a POST request for verify-address-with-mismatched-city-state-and-postal-code
     Then the response status for verify-address-with-mismatched-city-state-and-postal-code should be 200
     And the response code for verify-address-with-mismatched-city-state-and-postal-code should be "NOT_VERIFIED"

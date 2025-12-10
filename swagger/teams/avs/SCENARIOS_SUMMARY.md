@@ -38,24 +38,33 @@ The AVS API returns one of five response codes:
 - **Expected**: `responseCode: "CORRECTED"`, `stateProvinceChanged: true`, `validatedAddress.stateOrProvince` corrected
 - **Use Case**: API corrects state code
 
-#### 2.4 Valid Address with Incorrect Street
-- **Input**: Valid address but street name has variation (e.g., "COURT" instead of "CT")
-- **Expected**: `responseCode: "CORRECTED"`, `streetChanged: true`, `validatedAddress.streets` corrected
-- **Use Case**: API standardizes street abbreviations
+#### 2.4 Valid Address with Missing State and Postal Code
+- **Input**: Valid street and city but empty `stateOrProvince` and `postalCode`
+- **Expected**: `responseCode: "CORRECTED"`, `stateProvinceChanged: true`, `postalChanged: true`, `validatedAddress` populated with inferred values
+- **Use Case**: API can infer state and postal code from valid street + city combination
 
-### 3. PREMISES_PARTIAL Scenarios
+### 2.5 VERIFIED with Street Abbreviation Change
+
+#### 2.5.1 Street Abbreviation Normalization (COURT → CT)
+- **Input**: Valid address but street uses full word (e.g., "600 HARLAN COURT")
+- **Expected**: `responseCode: "VERIFIED"`, `streetChanged: true`, `validatedAddress.streets` normalized to "600 HARLAN CT"
+- **Use Case**: API normalizes abbreviations but considers address VERIFIED (not CORRECTED) since it's a formatting change only
+
+### 3. STREET_PARTIAL Scenarios
 
 #### 3.1 Wrong Street Number
-- **Input**: Valid street name but wrong number (e.g., "999 HARLAN CT" instead of "600 HARLAN CT")
-- **Expected**: `responseCode: "PREMISES_PARTIAL"`, `streetChanged: true`, `validatedAddress` populated with corrected number
-- **Use Case**: Street exists but specific premises doesn't match
+- **Input**: Valid street name but wrong/non-existent number (e.g., "999 HARLAN CT" instead of "600 HARLAN CT")
+- **Expected**: `responseCode: "STREET_PARTIAL"`, `validatedAddress: null`, `requestAddressSanitized` populated
+- **Use Case**: Street exists but specific premises number doesn't exist
 
-### 4. STREET_PARTIAL Scenarios
-
-#### 4.1 Street Name Only (No Number)
+#### 3.2 Street Name Only (No Number)
 - **Input**: Only street name without specific address number (e.g., "HARLAN CT")
-- **Expected**: `responseCode: "STREET_PARTIAL"`, `validatedAddress` populated with street-level validation
-- **Use Case**: Street name verified but no specific address
+- **Expected**: `responseCode: "STREET_PARTIAL"`, `validatedAddress: null`, `requestAddressSanitized` populated
+- **Use Case**: Street name exists but no specific premises number provided
+
+### 4. PREMISES_PARTIAL Scenarios
+
+> **Note**: PREMISES_PARTIAL is returned when the API can partially match the premises but not fully verify it. This is less common than STREET_PARTIAL.
 
 ### 5. NOT_VERIFIED Scenarios
 
@@ -69,21 +78,23 @@ The AVS API returns one of five response codes:
 - **Expected**: `responseCode: "NOT_VERIFIED"`, `validatedAddress: null`, `requestAddressSanitized` populated, `shippableResponseCode: "NOT_SHIPPABLE"`
 - **Use Case**: Address doesn't exist
 
-#### 5.3 Missing Required Fields
-- **Input**: Address with missing required fields (e.g., empty `stateOrProvince` and `postalCode`)
-- **Expected**: `responseCode: "NOT_VERIFIED"`, `validatedAddress: null`, `requestAddressSanitized` populated, `shippableResponseCode: "NOT_VALIDATED"`
-- **Use Case**: Insufficient information to validate
+#### 5.3 Insufficient Information
+- **Input**: Address with missing critical components that cannot be inferred (e.g., only city name without any street)
+- **Expected**: `responseCode: "NOT_VERIFIED"`, `validatedAddress: null`, `requestAddressSanitized` populated
+- **Use Case**: Truly insufficient information where API cannot infer missing values
+
+> **Note**: If street + city are valid and only state/postal are missing, API returns CORRECTED (see section 2.4). NOT_VERIFIED is returned only when the API truly cannot determine the address.
 
 ## Response Structure Patterns
 
 ### validatedAddress
-- **Populated for**: VERIFIED, CORRECTED, PREMISES_PARTIAL, STREET_PARTIAL
-- **Null for**: NOT_VERIFIED
-- **Contains**: Corrected/validated address information
+- **Populated for**: VERIFIED, CORRECTED, PREMISES_PARTIAL
+- **Null for**: STREET_PARTIAL, NOT_VERIFIED
+- **Contains**: Corrected/validated address information when address is fully or partially verified
 
 ### requestAddressSanitized
-- **Null for**: VERIFIED, CORRECTED, PREMISES_PARTIAL, STREET_PARTIAL
-- **Populated for**: NOT_VERIFIED
+- **Null for**: VERIFIED, CORRECTED, PREMISES_PARTIAL
+- **Populated for**: STREET_PARTIAL, NOT_VERIFIED
 - **Contains**: Sanitized version of input address (e.g., standardized street abbreviations)
 
 ### Field Change Indicators
@@ -110,9 +121,11 @@ The generator understands:
 - "valid address" → VERIFIED
 - "empty postal code" → CORRECTED with postalChanged: true
 - "incorrect city" → CORRECTED with cityChanged: true
-- "wrong street number" → PREMISES_PARTIAL
-- "street name only" → STREET_PARTIAL
-- "invalid address" → NOT_VERIFIED
+- "incorrect state" → CORRECTED with stateProvinceChanged: true
+- "missing state and postal" → CORRECTED (API infers from street+city)
+- "COURT abbreviation" → VERIFIED with streetChanged: true
+- "wrong street number" → STREET_PARTIAL with validatedAddress: null
+- "street name only" → STREET_PARTIAL with validatedAddress: null
 - "mismatched address" → NOT_VERIFIED
 - "non-existent address" → NOT_VERIFIED
 

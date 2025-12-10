@@ -14,7 +14,7 @@ interface CustomWorld extends World {
   response?: AxiosResponse<any>;
 }
 
-Given('the API endpoint for verify-address-with-mismatched-city-state-and-postal-code test is {string}', function (this: CustomWorld, endpoint: string) {
+Given('the API endpoint for verify-address-with-street-name-only test is {string}', function (this: CustomWorld, endpoint: string) {
   this.baseUrl = 'https://avs.scff.stg.chewy.com';
   this.endpoint = endpoint;
   this.headers = {
@@ -22,7 +22,7 @@ Given('the API endpoint for verify-address-with-mismatched-city-state-and-postal
   };
 });
 
-Given('the request body for verify-address-with-mismatched-city-state-and-postal-code is:', function (this: CustomWorld, dataTable) {
+Given('the request body for verify-address-with-street-name-only is:', function (this: CustomWorld, dataTable) {
   const rows = dataTable.hashes();
   const data = rows[0];
   this.requestBody = {
@@ -34,7 +34,7 @@ Given('the request body for verify-address-with-mismatched-city-state-and-postal
   };
 });
 
-When('I send a POST request for verify-address-with-mismatched-city-state-and-postal-code', async function (this: CustomWorld) {
+When('I send a POST request for verify-address-with-street-name-only', async function (this: CustomWorld) {
   try {
     const response = await axios.post(`${this.baseUrl}${this.endpoint}`, this.requestBody, { headers: this.headers });
     this.response = response;
@@ -47,23 +47,17 @@ When('I send a POST request for verify-address-with-mismatched-city-state-and-po
   }
 });
 
-Then('the response status for verify-address-with-mismatched-city-state-and-postal-code should be 200', function (this: CustomWorld) {
+Then('the response status for verify-address-with-street-name-only should be 200', function (this: CustomWorld) {
   expect(this.response?.status).to.equal(200);
 });
 
-Then('the response code for verify-address-with-mismatched-city-state-and-postal-code should be {string}', function (this: CustomWorld, expectedCode: string) {
+Then('the response code for verify-address-with-street-name-only should be {string}', function (this: CustomWorld, expectedCode: string) {
   const responseBody = this.response?.data;
   expect(responseBody).to.have.property('responseCode');
   expect(responseBody.responseCode).to.equal(expectedCode);
 });
 
-Then('the validatedAddress should be null for verify-address-with-mismatched-city-state-and-postal-code', function (this: CustomWorld) {
+Then('the validatedAddress should be null for verify-address-with-street-name-only', function (this: CustomWorld) {
   const responseBody = this.response?.data;
   expect(responseBody.validatedAddress).to.be.null;
-});
-
-Then('the requestAddressSanitized should be populated for verify-address-with-mismatched-city-state-and-postal-code', function (this: CustomWorld) {
-  const responseBody = this.response?.data;
-  expect(responseBody.requestAddress).to.not.be.null;
-  expect(responseBody.requestAddress).to.be.an('object');
 });
