@@ -1,0 +1,71 @@
+{
+  "id": "recording-1765417441930",
+  "startTime": 1765417441930,
+  "baseUrl": "https://www-stg.chewy.net",
+  "actions": [
+    {
+      "type": "navigate",
+      "selector": "",
+      "url": "https://www-stg.chewy.net/",
+      "timestamp": 1765417442730,
+      "description": "Navigate to https://www-stg.chewy.net/"
+    },
+    {
+      "type": "click",
+      "selector": "getByTestId('account-link')",
+      "timestamp": 1765417442830,
+      "description": "Click on getByTestId \"account-link\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('textbox', { name: 'Email Address' })",
+      "timestamp": 1765417442930,
+      "description": "Click on getByRole \"textbox\" with name \"Email Address\""
+    },
+    {
+      "type": "fill",
+      "selector": "getByRole('textbox', { name: 'Email Address' })",
+      "value": "vthatikonda-test@chewy.com",
+      "timestamp": 1765417443030,
+      "description": "Enter \"vthatikonda-test@chewy.com\" into \"getByRole('textbox', { name: 'Email Address' })\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('button', { name: 'Continue' })",
+      "timestamp": 1765417443130,
+      "description": "Click on getByRole \"button\" with name \"Continue\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('textbox', { name: 'Password' })",
+      "timestamp": 1765417443230,
+      "description": "Click on getByRole \"textbox\" with name \"Password\""
+    },
+    {
+      "type": "fill",
+      "selector": "getByRole('textbox', { name: 'Password' })",
+      "value": "ChewyTest1234",
+      "timestamp": 1765417443330,
+      "description": "Enter \"ChewyTest1234\" into \"getByRole('textbox', { name: 'Password' })\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('button', { name: 'Sign In' })",
+      "timestamp": 1765417443430,
+      "description": "Click on getByRole \"button\" with name \"Sign In\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('button', { name: 'Account' })",
+      "timestamp": 1765417443530,
+      "description": "Click on getByRole \"button\" with name \"Account\""
+    },
+    {
+      "type": "click",
+      "selector": "getByRole('link', { name: 'Sign Out' })",
+      "timestamp": 1765417443630,
+      "description": "Click on getByRole \"link\" with name \"Sign Out\""
+    }
+  ],
+  "sourceFile": "recordings/codegen-1765417387.js"
+}

@@ -61,10 +61,29 @@ export class RecordingToGherkinGenerator {
   }
 
   private getClickDescription(action: RecordedAction): string {
+    // First check the description which contains the actual element name
+    const desc = action.description?.toLowerCase() || '';
     const s = action.selector.toLowerCase();
+    
+    // DEBUG: Uncomment to trace execution
+    // console.log('getClickDescription:', { desc, s });
+    
+    // Check for specific button/link names from description first (MUST be before generic checks)
+    // Description format: "Click on getByRole "link" with name "Sign Out""
+    if (desc.includes('sign out') || desc.includes('signout')) {
+      return 'sign out link';
+    }
+    // Description format: "Click on getByRole "button" with name "Account""
+    // IMPORTANT: Check this BEFORE checking selector for account-link
+    if (desc.includes('button') && desc.includes('account') && !desc.includes('account-link')) {
+      return 'account button';
+    }
+    
     // Check place order button FIRST (before proceed/checkout)
     if (s.includes('place-order-button') || s.includes('order-button')) return 'place order button';
-    if (s.includes('account')) return 'account link';
+    // Only match account-link testid specifically, not just any "account" in selector
+    // This should NOT match getByRole('button', { name: 'Account' })
+    if (s.includes('getbytestid') && s.includes("'account-link'")) return 'account link';
     if (s.includes('continue')) return 'continue button';
     if (s.includes('sign in')) return 'sign in button';
     if (s.includes('search-button')) return 'search button';
@@ -77,7 +96,30 @@ export class RecordingToGherkinGenerator {
       if (s.includes('password')) return 'password field';
       if (s.includes('search')) return 'search field';
     }
-    if (s.includes('link') && !s.includes('account')) return 'product link';
+    // Check for links - but exclude account links AND sign out (already handled above)
+    if ((s.includes('link') || desc.includes('link')) && !s.includes('account-link') && !desc.includes('sign out')) {
+      // Extract name from description if available (e.g., "Click on getByRole "link" with name "Product Name"")
+      const nameMatch = desc.match(/name\s+['"](.+?)['"]/);
+      if (nameMatch && nameMatch[1]) {
+        const linkName = nameMatch[1].toLowerCase();
+        // Don't use generic "product link" if we have a specific name
+        if (linkName && linkName !== 'sign out') {
+          return `${nameMatch[1]} link`;
+        }
+      }
+      return 'product link';
+    }
+    // Check for buttons with names
+    if (s.includes('button') || desc.includes('button')) {
+      const nameMatch = desc.match(/name\s+['"](.+?)['"]/);
+      if (nameMatch && nameMatch[1]) {
+        const buttonName = nameMatch[1].toLowerCase();
+        if (buttonName === 'account') return 'account button';
+        if (buttonName === 'sign in') return 'sign in button';
+        if (buttonName === 'continue') return 'continue button';
+        return `${nameMatch[1]} button`;
+      }
+    }
     return 'element';
   }
 
@@ -218,13 +260,20 @@ export class RecordingToGherkinGenerator {
     if (selector.includes("getByTestId('")) {
       const match = selector.match(/getByTestId\('(.+?)'\)/);
       if (match) {
+        const testId = match[1];
+        // Common testids that are often ambiguous (appear multiple times on page)
+        const ambiguousTestIds = ['account-link', 'button', 'link', 'nav-link', 'menu-item'];
+        const isAmbiguous = ambiguousTestIds.includes(testId);
+        
         if (selector.includes('.') && !selector.startsWith('getByTestId')) {
           const chainMatch = selector.match(/(.+?)\.getByTestId/);
           if (chainMatch) {
-            return `page.${chainMatch[1]}.getByTestId('${match[1]}')`;
+            const code = `page.${chainMatch[1]}.getByTestId('${testId}')`;
+            return isAmbiguous ? `${code}.first()` : code;
           }
         }
-        return `page.getByTestId('${match[1]}')`;
+        const code = `page.getByTestId('${testId}')`;
+        return isAmbiguous ? `${code}.first()` : code;
       }
     }
     
