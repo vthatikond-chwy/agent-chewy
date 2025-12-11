@@ -727,6 +727,72 @@
     .loading {
       animation: pulse 1.5s infinite;
     }
+
+    /* Image Modal */
+    .image-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .image-modal-overlay.active {
+      display: flex;
+    }
+
+    .image-modal-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      position: relative;
+      cursor: default;
+    }
+
+    .image-modal-content img {
+      width: 100%;
+      height: auto;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      font-size: 32px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .image-modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Make images clickable */
+    #page-docs img {
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    #page-docs img:hover {
+      opacity: 0.9;
+    }
   </style>
 </head>
 <body>
@@ -1080,14 +1146,14 @@
                 </div>
               </div>
               <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center;">
-                <img src="/recordings/step1-context.gif" alt="Building context library" style="width: 100%; height: auto; border-radius: 12px;">
+                <img src="/recordings/step1-context.gif" alt="Building context library" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
               </div>
             </div>
 
             <!-- Step 2: Describe Test -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 64px;">
               <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center; order: -1;">
-                <img src="/recordings/step2-nlp.gif" alt="NLP test generation" style="width: 100%; height: auto; border-radius: 12px;">
+                <img src="/recordings/step2-nlp.gif" alt="NLP test generation" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
               </div>
               <div>
                 <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
@@ -1158,14 +1224,14 @@
                 </div>
               </div>
               <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center;">
-                <img src="/recordings/step3-run.gif" alt="Running test & viewing report" style="width: 100%; height: auto; border-radius: 12px;">
+                <img src="/recordings/step3-run.gif" alt="Running test & viewing report" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
               </div>
             </div>
 
             <!-- Step 4: Self-Heal -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-bottom: 48px;">
               <div style="background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; min-height: 280px; display: flex; align-items: center; justify-content: center; order: -1;">
-                <img src="/recordings/step4-validate.gif" alt="Context validation & auto-fix" style="width: 100%; height: auto; border-radius: 12px;">
+                <img src="/recordings/step4-validate.gif" alt="Context validation & auto-fix" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
               </div>
               <div>
                 <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
@@ -1937,7 +2003,37 @@
       terminal.appendChild(line);
       terminal.scrollTop = terminal.scrollHeight;
     }
+
+    // Image Modal Functions
+    function openImageModal(imageSrc) {
+      const modal = document.getElementById('image-modal');
+      const modalImage = document.getElementById('modal-image');
+      modalImage.src = imageSrc;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    function closeImageModal(event) {
+      const modal = document.getElementById('image-modal');
+      modal.classList.remove('active');
+      document.body.style.overflow = ''; // Restore scrolling
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeImageModal();
+      }
+    });
   </script>
+
+  <!-- Image Modal -->
+  <div class="image-modal-overlay" id="image-modal" onclick="closeImageModal(event)">
+    <div class="image-modal-content" onclick="event.stopPropagation()">
+      <button class="image-modal-close" onclick="closeImageModal(event)">&times;</button>
+      <img id="modal-image" src="" alt="Enlarged image">
+    </div>
+  </div>
 </body>
 </html>
 

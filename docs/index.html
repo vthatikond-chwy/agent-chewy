@@ -229,6 +229,68 @@
       width: 100%;
       height: auto;
       display: block;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .step-media img:hover {
+      opacity: 0.9;
+    }
+
+    /* Image Modal */
+    .image-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .image-modal-overlay.active {
+      display: flex;
+    }
+
+    .image-modal-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      position: relative;
+      cursor: default;
+    }
+
+    .image-modal-content img {
+      width: 100%;
+      height: auto;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      font-size: 32px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .image-modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
     }
 
     /* Quick Start */
@@ -404,7 +466,7 @@
         </div>
       </div>
       <div class="step-media">
-        <img src="recordings/step1-context.gif" alt="Building context library">
+        <img src="recordings/step1-context.gif" alt="Building context library" onclick="openImageModal(this.src)">
       </div>
     </div>
 
@@ -441,7 +503,7 @@ Feature: Valid Address Returns Verified
         </div>
       </div>
       <div class="step-media">
-        <img src="recordings/step2-nlp.gif" alt="NLP test generation">
+        <img src="recordings/step2-nlp.gif" alt="NLP test generation" onclick="openImageModal(this.src)">
       </div>
     </div>
 
@@ -473,7 +535,7 @@ Feature: Valid Address Returns Verified
         </div>
       </div>
       <div class="step-media">
-        <img src="recordings/step3-run.gif" alt="Running test & viewing report">
+        <img src="recordings/step3-run.gif" alt="Running test & viewing report" onclick="openImageModal(this.src)">
       </div>
     </div>
 
@@ -503,7 +565,7 @@ Feature: Valid Address Returns Verified
         </div>
       </div>
       <div class="step-media">
-        <img src="recordings/step4-validate.gif" alt="Context validation & auto-fix">
+        <img src="recordings/step4-validate.gif" alt="Context validation & auto-fix" onclick="openImageModal(this.src)">
       </div>
     </div>
 
@@ -574,7 +636,7 @@ Feature: Valid Address Returns Verified
           </div>
         </div>
         <div class="step-media">
-          <img src="recordings/ui-step1-recording.gif" alt="Recording test steps with Playwright Codegen" style="width: 100%; height: auto; border-radius: 12px;">
+          <img src="recordings/ui-step1-recording.gif" alt="Recording test steps with Playwright Codegen" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
         </div>
       </div>
 
@@ -608,7 +670,7 @@ Feature: Valid Address Returns Verified
           </div>
         </div>
         <div class="step-media">
-          <img src="recordings/ui-step2-saving.gif" alt="Generating code and saving test files" style="width: 100%; height: auto; border-radius: 12px;">
+          <img src="recordings/ui-step2-saving.gif" alt="Generating code and saving test files" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
         </div>
       </div>
 
@@ -639,7 +701,7 @@ Feature: Valid Address Returns Verified
           </div>
         </div>
         <div class="step-media">
-          <img src="recordings/ui-step3-playback.gif" alt="Playing back recorded scenario" style="width: 100%; height: auto; border-radius: 12px;">
+          <img src="recordings/ui-step3-playback.gif" alt="Playing back recorded scenario" style="width: 100%; height: auto; border-radius: 12px;" onclick="openImageModal(this.src)">
         </div>
       </div>
 
@@ -672,6 +734,14 @@ Feature: Valid Address Returns Verified
     </footer>
   </div>
 
+  <!-- Image Modal -->
+  <div class="image-modal-overlay" id="image-modal" onclick="closeImageModal(event)">
+    <div class="image-modal-content" onclick="event.stopPropagation()">
+      <button class="image-modal-close" onclick="closeImageModal(event)">&times;</button>
+      <img id="modal-image" src="" alt="Enlarged image">
+    </div>
+  </div>
+
   <script>
     function switchTab(tab) {
       // Update tab buttons
@@ -682,6 +752,27 @@ Feature: Valid Address Returns Verified
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.getElementById(`tab-${tab}`).classList.add('active');
     }
+
+    function openImageModal(imageSrc) {
+      const modal = document.getElementById('image-modal');
+      const modalImage = document.getElementById('modal-image');
+      modalImage.src = imageSrc;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    function closeImageModal(event) {
+      const modal = document.getElementById('image-modal');
+      modal.classList.remove('active');
+      document.body.style.overflow = ''; // Restore scrolling
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeImageModal();
+      }
+    });
   </script>
 </body>
 </html>
