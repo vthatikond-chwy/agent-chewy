@@ -1,0 +1,111 @@
+{
+  "generated": "2025-12-11T01:11:44.208Z",
+  "api": {
+    "total": 8,
+    "passed": 0,
+    "failed": 0,
+    "pending": 8,
+    "teams": [
+      "avs",
+      "kyrios"
+    ],
+    "tests": [
+      {
+        "name": "Fake Address Returns Not_verified",
+        "path": "features/api/avs/verification/fake-address-returns-not-verified.feature",
+        "team": "avs",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Fake Address Which Returns Not_verified",
+        "path": "features/api/avs/verification/fake-address-which-returns-not-verified.feature",
+        "team": "avs",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Invalid Address Which Returns Not_verified",
+        "path": "features/api/avs/verification/invalid-address-which-returns-not-verified.feature",
+        "team": "avs",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Validate maximum field lengths for non-B2B user creation",
+        "path": "features/api/kyrios/create-non-b2b-user-with-maximum-allowed-field-lengths.feature",
+        "team": "kyrios",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Validate unsupported RegisterType for non-B2B user creation",
+        "path": "features/api/kyrios/create-non-b2b-user-with-unsupported-registertype.feature",
+        "team": "kyrios",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Create non-B2B user with valid data",
+        "path": "features/api/kyrios/create-non-b2b-user-with-valid-data.feature",
+        "team": "kyrios",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Validate API behavior for creating users without required fields",
+        "path": "features/api/kyrios/create-non-b2b-user-without-required-fields.feature",
+        "team": "kyrios",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "SQL Injection vulnerability check during user creation",
+        "path": "features/api/kyrios/sql-injection-vulnerability-check-during-user-creation.feature",
+        "team": "kyrios",
+        "type": "api",
+        "scenarios": 1,
+        "status": "pending"
+      }
+    ]
+  },
+  "ui": {
+    "total": 3,
+    "passed": 0,
+    "failed": 0,
+    "pending": 3,
+    "tests": [
+      {
+        "name": "Recorded User Flow",
+        "path": "features/ui/checkout-flow.feature",
+        "team": "checkout-flow.feature",
+        "type": "ui",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Recorded User Flow",
+        "path": "features/ui/checkout-test.feature",
+        "team": "checkout-test.feature",
+        "type": "ui",
+        "scenarios": 1,
+        "status": "pending"
+      },
+      {
+        "name": "Chewy Test",
+        "path": "features/ui/chewy-test.feature",
+        "team": "chewy-test.feature",
+        "type": "ui",
+        "scenarios": 1,
+        "status": "pending"
+      }
+    ]
+  }
+}

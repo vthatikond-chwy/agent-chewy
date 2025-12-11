@@ -622,4 +622,142 @@ apiCommand
     }
   });
 
+// UI commands
+const uiCommand = program
+  .command('ui')
+  .description('UI test recording and generation commands');
+
+// Record command - full workflow: record → convert → run tests
+uiCommand
+  .command('record')
+  .description('Record UI actions, convert to Cucumber tests, and optionally run them')
+  .option('-u, --url <url>', 'Starting URL for recording')
+  .option('--no-run', 'Generate tests but do not run them')
+  .option('-o, --output <name>', 'Output file name (without extension)', 'recorded-flow')
+  .action(async (options: {
+    url?: string;
+    run?: boolean;
+    output?: string;
+  }) => {
+    try {
+      console.log('\n🎬 UI Test Recorder\n');
+      
+      const { CodegenRecorder } = await import('../agents/ui-agent/codegenRecorder.js');
+      const { RecordingToGherkinGenerator } = await import('../agents/ui-agent/recordingToGherkin.js');
+      const fs = await import('fs/promises');
+      const pathModule = await import('path');
+      const { execSync } = await import('child_process');
+      
+      const recorder = new CodegenRecorder();
+      const generator = new RecordingToGherkinGenerator();
+      
+      // Step 1: Record
+      console.log('📹 Starting Playwright Codegen...');
+      console.log('👉 Browser will open - perform your test actions');
+      console.log('👉 Close the browser when done\n');
+      
+      const sessionFile = await recorder.record(options.url);
+      
+      // Step 2: Load the session
+      console.log('\n📖 Loading recorded session...');
+      const sessionContent = await fs.readFile(sessionFile, 'utf-8');
+      const session = JSON.parse(sessionContent);
+      
+      // Step 3: Convert to Cucumber
+      console.log('🔄 Converting to Cucumber tests...\n');
+      const result = await generator.generate(session);
+      
+      // Step 4: Save files
+      const featureDir = 'features/ui';
+      await fs.mkdir(featureDir, { recursive: true });
+      const featurePath = pathModule.join(featureDir, `${options.output}.feature`);
+      await fs.writeFile(featurePath, result.feature, 'utf-8');
+      console.log(`✅ Feature file: ${featurePath}`);
+      
+      const stepsDir = 'src/steps/ui';
+      await fs.mkdir(stepsDir, { recursive: true });
+      const stepsPath = pathModule.join(stepsDir, `${options.output}.steps.ts`);
+      await fs.writeFile(stepsPath, result.steps, 'utf-8');
+      console.log(`✅ Step definitions: ${stepsPath}`);
+      
+      console.log('\n✨ Test generation complete!\n');
+      
+      // Step 5: Run tests (if not disabled)
+      if (options.run !== false) {
+        console.log('🚀 Running generated tests...\n');
+        try {
+          execSync(
+            `NODE_OPTIONS="--import tsx" npx cucumber-js ${featurePath} --import ${stepsPath} --format progress`,
+            { stdio: 'inherit', cwd: process.cwd() }
+          );
+          console.log('\n✅ Tests completed!');
+        } catch (error) {
+          console.log('\n⚠️ Some tests failed. Review the output above.');
+        }
+      } else {
+        console.log('🚀 To run the tests manually:');
+        console.log(`   NODE_OPTIONS="--import tsx" npx cucumber-js ${featurePath} --import ${stepsPath}`);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+// Run NLP-based UI test
+uiCommand
+  .command('run')
+  .description('Run UI test from natural language instruction')
+  .requiredOption('-i, --input <text>', 'Natural language test instruction')
+  .option('-k, --api-key <key>', 'OpenAI API key (or use OPENAI_API_KEY env var)')
+  .option('--headless', 'Run in headless mode')
+  .option('--no-vision', 'Disable vision-based healing')
+  .action(async (options: {
+    input: string;
+    apiKey?: string;
+    headless?: boolean;
+    vision?: boolean;
+  }) => {
+    try {
+      console.log('\n🤖 UI Agent - Natural Language Test\n');
+      
+      const apiKey = options.apiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required. Set OPENAI_API_KEY env var or use --api-key option');
+      }
+      
+      const { UIAgent } = await import('../agents/ui-agent/uiAgent.js');
+      
+      const agent = new UIAgent(apiKey, {
+        headless: options.headless || false,
+        useVision: options.vision !== false,
+        visionMode: 'fallback',
+        recordVideo: true,
+        recordScreenshots: true
+      });
+      
+      console.log(`📝 Instruction: "${options.input}"\n`);
+      
+      const result = await agent.run(options.input);
+      
+      console.log('\n📊 Results:');
+      console.log(`   Steps executed: ${result.stepsExecuted}/${result.totalSteps}`);
+      console.log(`   Success: ${result.success ? '✅ Yes' : '❌ No'}`);
+      
+      if (result.errors.length > 0) {
+        console.log('\n❌ Errors:');
+        result.errors.forEach(e => console.log(`   Step ${e.step}: ${e.error}`));
+      }
+      
+      if (result.video) {
+        console.log(`\n📹 Video: ${result.video}`);
+      }
+      
+    } catch (error: any) {
+      console.error('\n❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
 program.parse();
