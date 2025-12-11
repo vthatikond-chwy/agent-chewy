@@ -20,11 +20,7 @@
     "api:list": "npx tsx src/cli/index.ts api list",
     "api:list:avs": "npx tsx src/cli/index.ts api list -s swagger/teams/avs/avs-api.json",
     "api:heal": "npx tsx src/cli/index.ts api heal",
-    "dashboard": "npx tsx dashboard/server.ts",
-    "ui:record": "npx tsx src/cli/index.ts ui record",
-    "ui:run": "npx tsx src/cli/index.ts ui run -i",
-    "pages:generate": "node scripts/generate-pages-data.js",
-    "pages:build": "npm run pages:generate"
+    "dashboard": "npx tsx dashboard/server.ts"
   },
   "keywords": [],
   "author": "",
