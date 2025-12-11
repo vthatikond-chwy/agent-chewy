@@ -275,6 +275,45 @@
       text-decoration: none;
     }
 
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 40px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .step {
@@ -288,6 +327,10 @@
 
       .hero h1 {
         font-size: 32px;
+      }
+
+      .tabs {
+        overflow-x: auto;
       }
     }
   </style>
@@ -308,20 +351,28 @@
       </a>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-      <h1>
-        Generate API tests from<br>
-        <span>natural language</span>
-      </h1>
-      <p>
-        Agent Chewy turns plain English into production-ready Cucumber/BDD API tests. 
-        Powered by a smart context library built from your actual service code.
-      </p>
-      <a href="https://github.com/vthatikond-chwy/agent-chewy#quick-start" class="btn-primary">
-        ✨ Get Started
-      </a>
-    </section>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('api')">🔌 API Tests</button>
+      <button class="tab" onclick="switchTab('ui')">🖥️ UI Tests</button>
+    </div>
+
+    <!-- API Tests Tab -->
+    <div id="tab-api" class="tab-content active">
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1>
+          Generate API tests from<br>
+          <span>natural language</span>
+        </h1>
+        <p>
+          Agent Chewy turns plain English into production-ready Cucumber/BDD API tests. 
+          Powered by a smart context library built from your actual service code.
+        </p>
+        <a href="https://github.com/vthatikond-chwy/agent-chewy#quick-start" class="btn-primary">
+          ✨ Get Started
+        </a>
+      </section>
 
     <!-- How It Works -->
     <h2 class="section-title">How it works</h2>
@@ -456,24 +507,161 @@ Feature: Valid Address Returns Verified
       </div>
     </div>
 
-    <!-- Quick Start -->
-    <section class="quickstart">
-      <h2>🚀 Quick Start</h2>
-      <div class="quickstart-code">
-        <span class="comment"># Clone the repository</span><br>
-        <span class="command">git clone https://github.com/vthatikond-chwy/agent-chewy.git</span><br>
-        <span class="command">cd agent-chewy && npm install</span><br><br>
-        
-        <span class="comment"># Build context from your service (one-time)</span><br>
-        <span class="command">npm run context:avs</span><br><br>
-        
-        <span class="comment"># Generate & run a test from plain English</span><br>
-        <span class="command">npm run generate:avs "Test valid address returns VERIFIED"</span><br><br>
-        
-        <span class="comment"># Start the dashboard</span><br>
-        <span class="command">npm run dashboard</span>
+      <!-- Quick Start -->
+      <section class="quickstart">
+        <h2>🚀 Quick Start</h2>
+        <div class="quickstart-code">
+          <span class="comment"># Clone the repository</span><br>
+          <span class="command">git clone https://github.com/vthatikond-chwy/agent-chewy.git</span><br>
+          <span class="command">cd agent-chewy && npm install</span><br><br>
+          
+          <span class="comment"># Build context from your service (one-time)</span><br>
+          <span class="command">npm run context:avs</span><br><br>
+          
+          <span class="comment"># Generate & run a test from plain English</span><br>
+          <span class="command">npm run generate:avs "Test valid address returns VERIFIED"</span><br><br>
+          
+          <span class="comment"># Start the dashboard</span><br>
+          <span class="command">npm run dashboard</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- UI Tests Tab -->
+    <div id="tab-ui" class="tab-content">
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1>
+          Test Creation with<br>
+          <span>AI Recorder</span>
+        </h1>
+        <p>
+          The AI Recorder captures user actions inside a web application and automatically converts them into test scenarios. 
+          It helps the AI Test Engineer create reliable and repeatable automated tests without writing code manually.
+        </p>
+        <a href="https://github.com/vthatikond-chwy/agent-chewy#quick-start" class="btn-primary">
+          🎬 Start Recording
+        </a>
+      </section>
+
+      <!-- How It Works -->
+      <h2 class="section-title">How it works</h2>
+
+      <!-- Step 1: Recording Test Steps -->
+      <div class="step">
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-number green">01</div>
+            <h3 class="step-title">Recording Test Steps</h3>
+          </div>
+          <p class="step-text">
+            <strong>Confirm the Recorder is in Recording mode</strong><br>
+            When you run the recording command, Playwright Codegen opens a browser window with the Inspector panel. The recorder is automatically in recording mode—you'll see Playwright commands being generated in real-time as you interact with the application.
+          </p>
+          <p class="step-text">
+            <strong>Interact with the application inside the browser window</strong><br>
+            Simply perform your test scenario normally: click buttons, fill forms, navigate pages. The Recorder automatically logs your actions and generates corresponding test steps in real time. You can see each action being captured in the Playwright Inspector panel.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label green">📌 Example Command</div>
+            <code>
+              $ ./fully-auto-record.sh "Checkout Flow" "Complete purchase" "https://example.com"<br>
+              🎬 Browser opens with Playwright Inspector...<br>
+              👉 Interact with your application<br>
+              👉 Watch commands generate in real-time<br>
+              👉 Close browser when done
+            </code>
+          </div>
+        </div>
+        <div class="step-media">
+          <img src="recordings/ui-step1-recording.gif" alt="Recording test steps with Playwright Codegen" style="width: 100%; height: auto; border-radius: 12px;">
+        </div>
       </div>
-    </section>
+
+      <!-- Step 2: Generating Code and Saving -->
+      <div class="step reverse">
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-number blue">02</div>
+            <h3 class="step-title">Generating Code and Saving</h3>
+          </div>
+          <p class="step-text">
+            <strong>To save a recorded scenario:</strong><br>
+            After you close the browser, the recording script automatically converts your actions into Cucumber/Gherkin feature files and TypeScript step definitions. The script saves your test with the name you provided when you ran the command.
+          </p>
+          <p class="step-text">
+            <strong>Feature Name and Scenario Name</strong><br>
+            When you run <code>./fully-auto-record.sh "Test Name" "Description"</code>, the script uses your test name to generate the feature file (e.g., "chewy-test.feature"). The scenario name is automatically set to "Execute recorded actions", but you can edit the generated files afterward if needed. All files are saved to <code>features/ui/</code> and <code>src/steps/ui/</code> directories.
+          </p>
+          <p class="step-text">
+            <strong>View your saved test</strong><br>
+            After the script completes, you can find your test files in the features directory. The generated files are ready to run immediately with Cucumber.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label blue">📌 Generated Files</div>
+            <code>
+              ✅ Recording saved<br>
+              🔄 Converting to Cucumber tests...<br>
+              ✅ Feature: features/ui/chewy-test.feature<br>
+              ✅ Steps: src/steps/ui/chewy-test.steps.ts
+            </code>
+          </div>
+        </div>
+        <div class="step-media">
+          <img src="recordings/ui-step2-saving.gif" alt="Generating code and saving test files" style="width: 100%; height: auto; border-radius: 12px;">
+        </div>
+      </div>
+
+      <!-- Step 3: Playing Back a Scenario -->
+      <div class="step">
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-number purple">03</div>
+            <h3 class="step-title">Playing Back a Scenario</h3>
+          </div>
+          <p class="step-text">
+            <strong>Playback allows verification of test steps after saving</strong><br>
+            After generating and saving the test files, the fully-auto-record.sh script automatically runs the recorded steps to verify they work correctly. You'll see the test execution in real-time with pass/fail results.
+          </p>
+          <p class="step-text">
+            <strong>To playback a scenario:</strong><br>
+            The script automatically executes the generated Cucumber tests using Playwright. You'll see each step being executed and whether it passes or fails. If tests fail, you can review the generated code and fix any issues, then run the tests again manually.
+          </p>
+          <div class="step-example">
+            <div class="step-example-label purple">📌 Automatic Playback</div>
+            <code>
+              🚀 Running generated tests...<br>
+              ✅ Step 1: Navigate to URL<br>
+              ✅ Step 2: Click account link<br>
+              ✅ Step 3: Fill email field<br>
+              ✅ All tests passed!
+            </code>
+          </div>
+        </div>
+        <div class="step-media">
+          <img src="recordings/ui-step3-playback.gif" alt="Playing back recorded scenario" style="width: 100%; height: auto; border-radius: 12px;">
+        </div>
+      </div>
+
+      <!-- Quick Start -->
+      <section class="quickstart">
+        <h2>🚀 Quick Start</h2>
+        <div class="quickstart-code">
+          <span class="comment"># Record a UI test</span><br>
+          <span class="command">./fully-auto-record.sh "Test Name" "Description" "https://example.com"</span><br><br>
+          
+          <span class="comment"># Or use the CLI command</span><br>
+          <span class="command">npm run ui:record</span><br><br>
+          
+          <span class="comment"># Run natural language UI test</span><br>
+          <span class="command">npm run ui:run -i "Login to the application"</span><br><br>
+          
+          <span class="comment"># View generated tests</span><br>
+          <span class="command">ls features/ui/</span><br>
+          <span class="command">ls src/steps/ui/</span>
+        </div>
+      </section>
+    </div>
 
     <!-- Footer -->
     <footer class="footer">
@@ -483,5 +671,17 @@ Feature: Valid Address Returns Verified
       </p>
     </footer>
   </div>
+
+  <script>
+    function switchTab(tab) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+  </script>
 </body>
 </html>
