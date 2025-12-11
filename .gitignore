@@ -1,1 +1,4 @@
 test-results.json
+
+# Generated standalone test projects
+generated/
