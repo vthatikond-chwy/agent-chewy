@@ -323,6 +323,111 @@
       color: var(--accent-green);
     }
 
+    /* Flow Diagram Styles */
+    .flow-diagram {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .flow-step {
+      background: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .flow-step:hover {
+      border-color: var(--accent-blue);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    }
+
+    .flow-step-header {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .flow-step-content {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .flow-step-content ul {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
+    }
+
+    .flow-step-content li {
+      margin-bottom: 4px;
+    }
+
+    .flow-arrow {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 8px 0;
+      color: var(--accent-blue);
+      font-size: 20px;
+    }
+
+    .flow-arrow::before {
+      content: '↓';
+      display: block;
+      animation: pulse-arrow 2s infinite;
+    }
+
+    @keyframes pulse-arrow {
+      0%, 100% { opacity: 1; transform: translateY(0); }
+      50% { opacity: 0.6; transform: translateY(4px); }
+    }
+
+    .flow-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .flow-input {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1));
+      border: 2px dashed var(--accent-green);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
     /* Footer */
     .footer {
       text-align: center;
@@ -394,6 +499,11 @@
       .tabs {
         overflow-x: auto;
       }
+
+      /* Stack flows vertically on mobile */
+      .engineering-flows {
+        grid-template-columns: 1fr !important;
+      }
     }
   </style>
 </head>
@@ -417,6 +527,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('api')">🔌 API Tests</button>
       <button class="tab" onclick="switchTab('ui')">🖥️ UI Tests</button>
+      <button class="tab" onclick="switchTab('docs')">📖 Documentation</button>
     </div>
 
     <!-- API Tests Tab -->
@@ -721,6 +832,233 @@ Feature: Valid Address Returns Verified
           <span class="comment"># View generated tests</span><br>
           <span class="command">ls features/ui/</span><br>
           <span class="command">ls src/steps/ui/</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- Documentation Tab -->
+    <div id="tab-docs" class="tab-content">
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1>
+          Agent Chewy<br>
+          <span>Documentation</span>
+        </h1>
+        <p>
+          Complete guide to understanding and using Agent Chewy for automated test generation.
+        </p>
+      </section>
+
+      <!-- What is Agent Chewy -->
+      <section style="margin-bottom: 64px;">
+        <h2 class="section-title">What is Agent Chewy?</h2>
+        
+        <div style="max-width: 900px; margin: 0 auto; padding: 40px 20px;">
+          <p style="font-size: 18px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 24px;">
+            Agent Chewy is an AI-powered test automation platform that revolutionizes how you create, maintain, and execute automated tests. 
+            It combines the power of AI with industry-standard testing frameworks (Cucumber/BDD, Playwright) to deliver fast, reliable, and maintainable test automation.
+          </p>
+          <p style="font-size: 18px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 0;">
+            Unlike traditional test automation tools that lock you into proprietary formats, Agent Chewy generates standard Cucumber/BDD test code 
+            that you own completely. Your tests are stored in your Git repository, giving you full control and freedom to run them anywhere.
+          </p>
+        </div>
+      </section>
+
+      <!-- Engineering Flow: API & UI Tests Side by Side -->
+      <section style="margin-bottom: 64px;">
+        <h2 class="section-title">Engineering Flow</h2>
+        
+        <div class="engineering-flows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 32px;">
+          <!-- API Tests Flow -->
+          <div class="flow-diagram">
+            <div class="flow-title">🔌 API Tests</div>
+            
+            <div class="flow-input">INPUT: Natural Language + Team + Swagger</div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">1</span>
+                <span>Load Context</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Load/Build context library</li>
+                  <li>Extract: patterns, rules, codes</li>
+                  <li>Output: ApiContext</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">2</span>
+                <span>Load Schema</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Parse Swagger/OpenAPI spec</li>
+                  <li>Extract: endpoints, schemas</li>
+                  <li>Output: Parsed spec</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">3</span>
+                <span>NLP Processing</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Parse natural language</li>
+                  <li>Match to context + schema</li>
+                  <li>Output: TestPlan</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">4</span>
+                <span>Test Generation</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Generate Gherkin features</li>
+                  <li>Generate TypeScript steps</li>
+                  <li>Output: .feature + .steps.ts</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">5</span>
+                <span>Execution</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Run Cucumber tests</li>
+                  <li>Execute HTTP requests</li>
+                  <li>Validate & report</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- UI Tests Flow -->
+          <div class="flow-diagram">
+            <div class="flow-title">🖥️ UI Tests</div>
+            
+            <div class="flow-input">INPUT: Test Name + Description + URL</div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">1</span>
+                <span>Record Actions</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Launch Playwright Codegen</li>
+                  <li>Capture user interactions</li>
+                  <li>Output: Raw codegen file</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">2</span>
+                <span>Parse Recording</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Parse codegen JavaScript</li>
+                  <li>Extract structured actions</li>
+                  <li>Output: RecordedSession</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">3</span>
+                <span>Convert to Gherkin</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Transform to Gherkin</li>
+                  <li>Group into Given/When/Then</li>
+                  <li>Output: Feature file</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">4</span>
+                <span>Generate Step Definitions</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Generate TypeScript steps</li>
+                  <li>Add Playwright code</li>
+                  <li>Output: .steps.ts</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">5</span>
+                <span>Create Project</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Create standalone project</li>
+                  <li>Generate config files</li>
+                  <li>Output: Complete project</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="flow-arrow"></div>
+            
+            <div class="flow-step">
+              <div class="flow-step-header">
+                <span class="flow-step-number">6</span>
+                <span>Execute Tests</span>
+              </div>
+              <div class="flow-step-content">
+                <ul>
+                  <li>Run Cucumber + Playwright</li>
+                  <li>Self-healing if needed</li>
+                  <li>Generate reports</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
