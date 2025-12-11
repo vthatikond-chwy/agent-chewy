@@ -10,5 +10,11 @@ npx tsx src/cli/index.ts api test -t avs \
 
 # NOT_VERIFIED
 npx tsx src/cli/index.ts api test -t avs \
-  -i "Test fake address returns NOT_VERIFIED"
+  -i "Test UN VERIFIED address returns NOT_VERIFIED"
 # ✅ 1 passed
+
+UI recording 
+
+./fully-auto-record.sh 'Chewy Test' 'Complete flow' 'https://www-stg.chewy.net' --clean
+
+npm run generate:avs "Test INVALID address which returns NOT_VERIFIED"
