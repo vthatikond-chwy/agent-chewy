@@ -198,15 +198,31 @@ export class RecordingToGherkinGenerator {
             generatedPatterns.add(clickPattern);
             const selector = this.convertSelectorToCode(action.selector);
             const needsWait = this.shouldWaitForNavigation(action, recording.actions[index + 1]);
+            const waitAfter = this.shouldWaitAfterAction(action, recording.actions[index + 1]);
+            
+            // Special handling for nested selectors (like smartshelf-actions) that might need more time
+            const isNestedSelector = action.selector.includes('.getBy');
+            const isCheckoutButton = clickDesc.includes('checkout') || clickDesc.includes('proceed');
+            const timeout = (isNestedSelector || isCheckoutButton) ? 20000 : 10000;
+            
+            // For nested selectors, wait for parent first
+            let waitForParent = '';
+            if (isNestedSelector && action.selector.includes('getByTestId')) {
+              const parentMatch = action.selector.match(/getByTestId\(['"](.+?)['"]\)\.getBy/);
+              if (parentMatch) {
+                waitForParent = `  await page.getByTestId('${parentMatch[1]}').waitFor({ state: 'visible', timeout: ${timeout} });\n`;
+              }
+            }
             
             stepDefs.push(
               `When('I click on ${clickDesc}', async function() {`,
+              waitForParent,
               `  const element = ${selector};`,
-              `  await element.waitFor({ state: 'visible', timeout: 10000 });`,
+              `  await element.waitFor({ state: 'visible', timeout: ${timeout} });`,
               `  await element.click();`,
               needsWait 
                 ? `  await page.waitForLoadState('domcontentloaded', { timeout: 10000 });`
-                : `  await page.waitForTimeout(500);`,
+                : `  await page.waitForTimeout(${waitAfter});`,
               `});`,
               ``
             );
@@ -244,6 +260,14 @@ export class RecordingToGherkinGenerator {
     const navigationKeywords = ['continue', 'submit', 'sign in', 'login', 'proceed', 'checkout'];
     const selectorLower = action.selector.toLowerCase();
     return action.type === 'click' && navigationKeywords.some(kw => selectorLower.includes(kw));
+  }
+
+  private shouldWaitAfterAction(action: RecordedAction, nextAction?: RecordedAction): number {
+    // After add to cart, wait longer for modal/overlay to appear
+    if (action.selector.toLowerCase().includes('add-to-cart') || action.selector.toLowerCase().includes('add-to-cart-button')) {
+      return 2000; // 2 seconds for modal to appear
+    }
+    return 500; // Default wait
   }
 
   private convertSelectorToCode(selector: string): string {
